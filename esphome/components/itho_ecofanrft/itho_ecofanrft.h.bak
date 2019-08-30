@@ -1,0 +1,55 @@
+#pragma once
+
+#include "esphome/core/component.h"
+#include "esphome/core/automation.h"
+#include "esphome/components/fan/fan_state.h"
+#include "esphome/components/spi/spi.h"
+
+namespace esphome {
+namespace itho_ecofanrft {
+
+class IthoEcoFanRftFan;
+
+class IthoEcoFanRftComponent : public Component,
+                               public spi::SPIDevice<spi::BIT_ORDER_MSB_FIRST, spi::CLOCK_POLARITY_HIGH,
+                                                     spi::CLOCK_PHASE_TRAILING, spi::DATA_RATE_1MHZ> {
+
+ public:
+  void setup() override;
+  void loop() override;
+  void dump_config() override;
+  float get_setup_priority() const override;
+
+  IthoEcoFanRftFan *get_fan();
+
+  void join();
+
+
+ protected:
+  IthoEcoFanRftFan *fan_;
+}
+
+class IthoEcoFanRftFan : public fan::FanState {
+ public:
+  IthoEcoFanRftFan(IthoEcoFanRftComponent *parent);
+  //void setup() override;
+  //void loop() override;
+  //void dump_config() override;
+  //float get_setup_priority() const override;
+
+ protected:
+  IthoEcoFanRftComponent *parent_;
+};
+
+template<typename... Ts> class JoinAction : public Action<Ts...> {
+ public:
+  //explicit JoinAction(fan::FanState *parent) : parent_(parent) {}
+
+  void play(Ts... x) override {
+    this->join();
+  }
+};
+
+
+}  // namespace itho_ecofanrft
+}  // namespace esphome

@@ -63,6 +63,8 @@ class SPIComponent : public Component {
   void set_miso(GPIOPin *miso) { miso_ = miso; }
   void set_mosi(GPIOPin *mosi) { mosi_ = mosi; }
 
+  GPIOPin *get_miso() { return miso_; }
+
   void setup() override;
 
   void dump_config() override;

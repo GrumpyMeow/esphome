@@ -4,7 +4,7 @@ from esphome.components import fan
 from esphome.const import CONF_ID
 from . import IthoEcoFanRftComponent, itho_ecofanrft_ns, CONF_ITHO_ECOFANRFT_ID
 
-DEPENDENCIES = [ 'itho_ecofanrft' ]
+DEPENDENCIES = ['itho_ecofanrft']
 
 IthoEcoFanRftFan = itho_ecofanrft_ns.class_('IthoEcoFanRftFan', fan.FanState)
 
@@ -13,19 +13,9 @@ CONFIG_SCHEMA = fan.FAN_SCHEMA.extend({
     cv.GenerateID(CONF_ITHO_ECOFANRFT_ID): cv.use_id(IthoEcoFanRftComponent),
 })
 
+
 def to_code(config):
     hub = yield cg.get_variable(config[CONF_ITHO_ECOFANRFT_ID])
     ithofan = hub.Pget_fan()
     var = cg.Pvariable(config[CONF_ID], ithofan)
     yield fan.register_fan(var, config)
-
-    #var = cg.new_Pvariable(config[CONF_ID])
-    #yield fan.register_fan(var, config)
-
-
-    #    var = cg.new_Pvariable(config[CONF_ID])
-    #    yield cg.register_component(var, config)
-
-    #fan_ = yield fan.create_fan_state(config)
-    #cg.add(var.set_fan(fan_))
-

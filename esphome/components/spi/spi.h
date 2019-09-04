@@ -166,8 +166,17 @@ class SPIComponent : public Component {
   uint32_t wait_cycle_;
 };
 
+
+class SPIActions {
+ public:
+  virtual void enable() = 0;
+  virtual void disable() = 0;
+  virtual void write_byte(uint8_t data) = 0;
+  virtual uint8_t transfer_byte(uint8_t data) = 0;
+};
+
 template<SPIBitOrder BIT_ORDER, SPIClockPolarity CLOCK_POLARITY, SPIClockPhase CLOCK_PHASE, SPIDataRate DATA_RATE>
-class SPIDevice {
+class SPIDevice : public SPIActions {
  public:
   SPIDevice() = default;
   SPIDevice(SPIComponent *parent, GPIOPin *cs) : parent_(parent), cs_(cs) {}
@@ -180,9 +189,9 @@ class SPIDevice {
     this->cs_->digital_write(true);
   }
 
-  void enable() { this->parent_->template enable<BIT_ORDER, CLOCK_POLARITY, CLOCK_PHASE, DATA_RATE>(this->cs_); }
+  void enable() final { this->parent_->template enable<BIT_ORDER, CLOCK_POLARITY, CLOCK_PHASE, DATA_RATE>(this->cs_); }
 
-  void disable() { this->parent_->disable(); }
+  void disable() final { this->parent_->disable(); }
 
   uint8_t read_byte() { return this->parent_->template read_byte<BIT_ORDER, CLOCK_POLARITY, CLOCK_PHASE>(); }
 
@@ -196,7 +205,7 @@ class SPIDevice {
     return data;
   }
 
-  void write_byte(uint8_t data) {
+  void write_byte(uint8_t data) final {
     return this->parent_->template write_byte<BIT_ORDER, CLOCK_POLARITY, CLOCK_PHASE>(data);
   }
 
@@ -208,7 +217,7 @@ class SPIDevice {
 
   void write_array(const std::vector<uint8_t> &data) { this->write_array(data.data(), data.size()); }
 
-  uint8_t transfer_byte(uint8_t data) {
+  uint8_t transfer_byte(uint8_t data) final {
     return this->parent_->template transfer_byte<BIT_ORDER, CLOCK_POLARITY, CLOCK_PHASE>(data);
   }
 

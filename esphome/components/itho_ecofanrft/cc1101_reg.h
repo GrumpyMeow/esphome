@@ -106,13 +106,13 @@ static const uint8_t CC1101_RCCTRL1_STATUS = 0x3C;    // Last RC Oscillator Cali
 static const uint8_t CC1101_RCCTRL0_STATUS = 0x3D;    // Last RC Oscillator Calibration Result
 
 /* Bit fields in the chip status byte */
-static const uint8_t C_C1101_STATUS_CHIP_RD_YN_BM = 0x80;
+static const uint8_t CC1101_STATUS_CHIP_RD_YN_BM = 0x80;
 static const uint8_t CC1101_STATUS_STATE_BM = 0x70;
 static const uint8_t CC1101_STATUS_FIFO_BYTES_AVAILABLE_BM = 0x0F;
 
 /* Masks to retrieve status bit */
-static const uint8_t CC1101_BITS_TX_FIFO_UNDERFLOW = 0x80;
-static const uint8_t CC1101_BITS_RX_BYTES_IN_FIFO = 0x7F;
+static const uint8_t CC1101_BITS_FIFO_UNDERFLOW = 0x80;
+static const uint8_t CC1101_BITS_BYTES_IN_FIFO = 0x7F;
 static const uint8_t CC1101_BITS_MARCSTATE = 0x1F;
 
 

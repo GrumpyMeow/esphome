@@ -3,6 +3,7 @@
 //https://gathering.tweakers.net/forum/list_message/54115879#54115879
 
 #include <unordered_map>
+#include "esphome/components/fan/fan_state.h"
 #include "cc1101_reg.h"
 
 namespace esphome {
@@ -100,16 +101,35 @@ static const std::vector<uint8_t> itho_cc1101_patable_receive = {0x00,0x03,0x0F,
 const uint8_t ithoMessage2JoinCommandBytes[] = {9,90,170,90,165,165,89,106,85,149,102,89,150,170,165};
 
 static const std::unordered_map<std::string, std::vector<uint8_t>> itho_commands = {
-    { "low",    { 0x22, 0xf1, 0x03, 0x00, 0x02, 0x04} },        // ok
-    { "medium", { 0x22, 0xf1, 0x03, 0x00, 0x03, 0x04} },        // ok
-    { "high",   { 0x22, 0xf1, 0x03, 0x00, 0x04, 0x04} },        // ok
+    { "min",    { 0x22, 0xf1, 0x03, 0x00, 0x01, 0x04 } },        // ok
+    { "low",    { 0x22, 0xf1, 0x03, 0x00, 0x02, 0x04 } },        // ok
+    { "medium", { 0x22, 0xf1, 0x03, 0x00, 0x03, 0x04 } },        // ok
+    { "high",   { 0x22, 0xf1, 0x03, 0x00, 0x04, 0x04 } },        // ok
+    { "max",    { 0x22, 0xf1, 0x03, 0x00, 0x05, 0x04 } },        // ok  // full power
 
-    { "timer1", { 0x22, 0xf3, 0x03, 0x00, 0x80, 0x01} },        // ok
-    { "timer2", { 0x22, 0xf3, 0x03, 0x00, 0x80, 0x02} },
-    { "timer3", { 0x22, 0xf3, 0x03, 0x00, 0x80, 0x03} },
+    { "timer1", { 0x22, 0xf3, 0x03, 0x00, 0x80, 0x01 } },        // ok
+    { "timer2", { 0x22, 0xf3, 0x03, 0x00, 0x80, 0x02 } },
+    { "timer3", { 0x22, 0xf3, 0x03, 0x00, 0x80, 0x03 } },
 
+    { "join",   { 0x1f, 0xc9, 0x0c, 0x00, 0x22, 0xf1 } },   // ... <join> <id> <join_2> <id> <crc>      //ok
+    { "join_2", { 0x01, 0x10, 0xe0 } },
+    { "leave",  { 0x1f, 0xc9, 0x06, 0x00, 0x1f, 0xc9 } },   // ... <leave> <id> <crc>
+};
 
-    { "join", { 0x00, 0x01 } },
+/*
+ * Status messages:
+ * lead_in: 1 byte (0x14)
+ * id: 3 bytes (e.g. 0x50 0x72 0xA2)
+ * msg: 5 bytes
+ * value: 1 byte
+ * crc: 1 byte
+ */
+static const std::vector<uint8_t> itho_status = { 0x31, 0xd9, 0x03, 0x00, 0x00 };
+
+static const std::unordered_map<uint8_t, fan::FanSpeed> itho_status_speed = {
+    { 0x01, fan::FAN_SPEED_LOW },
+    { 0x50, fan::FAN_SPEED_MEDIUM },
+    { 0x8c, fan::FAN_SPEED_HIGH },
 };
 
 
@@ -122,7 +142,9 @@ static const std::vector<uint8_t> itho_cc1101_footer = {0xac, 0xca};
 
 namespace packet {
 static const std::vector<uint8_t> lead_in = { 0x16 };
-static const std::vector<uint8_t> remote_id = { 0x0a, 0x57, 0x51 };
+//static const std::vector<uint8_t> remote_id = { 0x0a, 0x57, 0x51 };
+static const std::vector<uint8_t> remote_id = { 0x1a, 0x57, 0x51 };
+static const std::vector<uint8_t> peer_id = { 0x50, 0x72, 0xA2 };
 static const uint8_t footer_even = 0xac;
 static const uint8_t footer_odd = 0xca;
 static const uint8_t post_amble = 0xaa;

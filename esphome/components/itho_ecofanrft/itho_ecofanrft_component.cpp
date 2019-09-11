@@ -69,12 +69,34 @@ void IthoEcoFanRftComponent::loop() {
     ESP_LOGD(TAG, "Data available in RX FIFO! (%02x) (%4d dBm)", this->store_.count, rssi);
 
     if (rssi > -75) {
-        std::vector <uint8_t> payload = this->itho_cc1101_->get_data();
+        //std::vector <uint8_t> payload = this->itho_cc1101_->get_data();
+        //
 
-        for (uint8_t i : payload) {
-            ESP_LOGV(TAG, "Packet payload (%02X)", i);
+    }
+
+    {
+        uint8_t speed;
+        if (this->itho_cc1101_->get_fan_speed(&speed)) {
+
+            auto call = this->fan_->make_call();
+
+            if (speed > 0x00) {
+                call.set_state(true);
+
+                if (speed < 0x40) {
+                    call.set_speed(fan::FAN_SPEED_LOW);
+                } else if (speed < 0x80) {
+                    call.set_speed(fan::FAN_SPEED_MEDIUM);
+                } else {
+                    call.set_speed(fan::FAN_SPEED_HIGH);
+                }
+            } else {
+                call.set_state(false);
+            }
+            call.perform();
         }
     }
+
 
     //this->itho_cc1101_->send_command("timer1");
 #if 0                   
@@ -230,24 +252,26 @@ void IthoEcoFanRftComponent::loop() {
         speed = "high";
     }
     ESP_LOGD(TAG, "Setting speed: '%s'", speed.c_str());
-    this->itho_cc1101_->send_command(speed);
-  }
-
-#if 0
+  
     bool enable = this->fan_->state;
     if (enable) {
-     // this->output_->turn_on();
+        ESP_LOGD(TAG, "Sending speed: '%s'", speed.c_str());
+        this->itho_cc1101_->send_command(speed);
     } else {
-     // this->output_->turn_off();
+        ESP_LOGD(TAG, "Sending speed: min");
+        this->itho_cc1101_->send_command("min");
     }
+    // After command switch back to receive mode
+    this->itho_cc1101_->enable_receive_mode();
+
     ESP_LOGD(TAG, "Setting itho_ecofanrft state: %s", ONOFF(enable));
   }
-#endif
 }
 float IthoEcoFanRftComponent::get_setup_priority() const { return setup_priority::DATA; }
 
 void IthoEcoFanRftComponent::join() {
-  ESP_LOGVV(TAG, "Fan '%s': join() called", this->fan_->get_name().c_str());
+  ESP_LOGD(TAG, "Fan '%s': join() called", this->fan_->get_name().c_str());
+  this->itho_cc1101_->send_command("max");
 }
 
 } // namespace itho_ecofanrft

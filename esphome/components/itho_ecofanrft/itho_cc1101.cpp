@@ -92,9 +92,11 @@ std::vector <uint8_t> IthoCC1101::get_data() {
                 out[i] = x;
             }
 
-            //for (uint8_t i : out) {
-            //    ESP_LOGV(TAG, "Packet payload (%02X)", i);
-            //}
+#ifdef ESPHOME_LOG_LEVEL_VERY_VERBOSE
+            for (uint8_t i : out) {
+                ESP_LOGV(TAG, "Packet payload (%02X)", i);
+            }
+#endif
 
             uint8_t crc = 0;
             for (unsigned int i = 0; i < out.size(); i++) {
@@ -140,6 +142,32 @@ std::vector <uint8_t> IthoCC1101::get_data() {
                     }
 
 #endif
+
+
+bool IthoCC1101::get_fan_speed(uint8_t *speed) {
+
+    std::vector<uint8_t> data = this->get_data();
+    *speed = 0xFF;
+
+    if (has_valid_crc(data)) {
+
+        auto id = std::search(data.begin(), data.end(), packet::peer_id.begin(), packet::peer_id.end());
+        auto pos = std::search(data.begin(), data.end(), itho_status.begin(), itho_status.end());
+        if (data.size() == 11 &&              // 1 + 3 + 5 + 1 + 1
+                data[0] == 0x14 &&
+                id - data.begin() == 1 &&
+                pos - data.begin() == 4) {
+            pos += itho_status.size();
+            *speed = *pos;
+
+            ESP_LOGV(TAG, "Packet speed (%02X)", *speed);
+            return true;
+        }
+    }
+
+    return false;
+}
+
 uint8_t IthoCC1101::calc_crc(std::vector<uint8_t> data) {
 
     uint8_t crc = 0;
@@ -162,6 +190,15 @@ void IthoCC1101::send_command(std::string command) {
     cmd.insert(cmd.end(), packet::remote_id.begin(), packet::remote_id.end());
     cmd.push_back(this->counter_++);
     cmd.insert(cmd.end(), cmd_it->second.begin(), cmd_it->second.end());
+
+    if (command == "join") {
+        cmd.insert(cmd.end(), packet::remote_id.begin(), packet::remote_id.end());
+        cmd.insert(cmd.end(), itho_commands.at("join_2").begin(), itho_commands.at("join_2").end());
+        cmd.insert(cmd.end(), packet::remote_id.begin(), packet::remote_id.end());
+    } else if (command == "leave") {
+        cmd.insert(cmd.end(), packet::remote_id.begin(), packet::remote_id.end());
+    }
+
     cmd.push_back(this->calc_crc(cmd));
 
     //for (uint8_t i : cmd) {
@@ -170,7 +207,8 @@ void IthoCC1101::send_command(std::string command) {
 
     std::vector <bool> raw1, raw2;
     // FIXME:  should round up to nearest multiple of 4, with bits to true
-    raw1.resize(5 * cmd.size() * 2, false);       // 2 nibbles per byte, 5 bits per nibble
+    //raw1.resize(5 * cmd.size() * 2, false);       // 2 nibbles per byte, 5 bits per nibble
+    raw1.resize(((5 * cmd.size() * 2 + 4 - 1) & -4), true);       // 2 nibbles per byte, 5 bits per nibble, round up to multiple of 4
     uint16_t idx;
     bool v;
     for (uint8_t i = 0; i < cmd.size(); i++) {
@@ -181,7 +219,7 @@ void IthoCC1101::send_command(std::string command) {
                 v = (n >> k) & 1;
                 raw1[idx] = v;
             }
-            raw1[5 * (2 * i + j) + 4] = true;
+            //raw1[5 * (2 * i + j) + 4] = true;  //is already tre
         }
     }
 

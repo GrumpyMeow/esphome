@@ -18,7 +18,8 @@ class IthoCC1101 {
      this->cc1101_->receive();
   }
   std::vector<uint8_t> get_data();
-  bool has_valid_crc();
+  bool get_fan_speed(uint8_t *speed);
+  bool has_valid_crc(std::vector<uint8_t> data) { return this->calc_crc(data) == 0x00; }
 
   uint8_t calc_crc(std::vector<uint8_t> data);
 

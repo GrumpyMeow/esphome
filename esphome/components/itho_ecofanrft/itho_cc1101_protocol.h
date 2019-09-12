@@ -65,8 +65,8 @@ static const std::vector<register_setting> itho_cc1101_config_receive
   {CC1101_FIFOTHR,     0x4E},   // ADC retention, 6dB att, 33/32 fifothr
   {CC1101_SYNC1,       0xAB},
   {CC1101_SYNC0,       0xFE},
-  {CC1101_PKTLEN,      0x3F},
-  {CC1101_PKTCTRL1,    0x60},
+  {CC1101_PKTLEN,      MAX_PACKET_LEN}, // {CC1101_PKTLEN,      0x3F},
+  {CC1101_PKTCTRL1,    0xA0},       // 0x60
   {CC1101_PKTCTRL0,    0x00},
   {CC1101_FSCTRL1,     0x06},
   {CC1101_FREQ2,       0x21},

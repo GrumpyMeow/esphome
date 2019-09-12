@@ -94,6 +94,7 @@ void IthoEcoFanRftComponent::loop() {
                 call.set_state(false);
             }
             call.perform();
+            this->next_update_ = false;
         }
     }
 

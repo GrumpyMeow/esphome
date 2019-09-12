@@ -17,13 +17,33 @@ void ICACHE_RAM_ATTR IthoEcoFanRftComponentStore::reset() {
   data_available = false;
 }
 
-void itho_ecofanrft::IthoEcoFanRftComponent::dump_config() {
-  ESP_LOGCONFIG(TAG, "Fan '%s':", this->fan_->get_name().c_str());
+std::string IthoEcoFanRftComponent::format_addr_(std::vector<uint8_t> addr) {
+  std::string s = "";
+  char buf[20];
+  for (uint8_t a : addr) {
+      sprintf(&buf[0], "%02X:", a);
+      s += buf;
+  }
+  s.pop_back();
+  return s;
+}
 
+void itho_ecofanrft::IthoEcoFanRftComponent::dump_config() {
+  std::string s;
+
+  ESP_LOGCONFIG(TAG, "Itho EcoFanRft '%s'", this->fan_->get_name().c_str());
+  ESP_LOGCONFIG(TAG, "  RF Address: '%s'", this->format_addr_(this->rf_address_).c_str());
+  ESP_LOGCONFIG(TAG, "  RF Peer Address: '%s'", this->format_addr_(this->peer_rf_address_).c_str());
+  LOG_PIN("  CS Pin: ", this->cs_);
+  LOG_PIN("  IRQ Pin: ", this->irq_);
+
+
+#ifdef ESPHOME_LOG_HAS_VERY_VERBOSE
   std::vector<uint8_t> config = this->cc1101_->read_burst_register(0x00, 47);
   for (uint8_t i = 0; i < config.size(); i++) {
     ESP_LOGCONFIG(TAG, "Config register [%02X] => [%02X]", i, config[i]);
   }
+#endif
 }
 void IthoEcoFanRftComponent::setup() {
 
@@ -32,7 +52,7 @@ void IthoEcoFanRftComponent::setup() {
   }
 
   if (this->itho_cc1101_ == nullptr) {
-    this->itho_cc1101_ = new IthoCC1101(this->cc1101_);
+    this->itho_cc1101_ = new IthoCC1101(this->cc1101_, this->rf_address_);
   }
 
   this->spi_setup();
@@ -76,7 +96,7 @@ void IthoEcoFanRftComponent::loop() {
 
     {
         uint8_t speed;
-        if (this->itho_cc1101_->get_fan_speed(&speed)) {
+        if (this->itho_cc1101_->get_fan_speed(this->peer_rf_address_, &speed)) {
 
             auto call = this->fan_->make_call();
 
@@ -272,7 +292,8 @@ float IthoEcoFanRftComponent::get_setup_priority() const { return setup_priority
 
 void IthoEcoFanRftComponent::join() {
   ESP_LOGD(TAG, "Fan '%s': join() called", this->fan_->get_name().c_str());
-  this->itho_cc1101_->send_command("max");
+  this->itho_cc1101_->send_command("join");
+  this->itho_cc1101_->enable_receive_mode();
 }
 
 } // namespace itho_ecofanrft

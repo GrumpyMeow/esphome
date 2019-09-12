@@ -31,7 +31,7 @@ std::vector <uint8_t> IthoCC1101::get_data() {
     auto pos = std::search(data.begin(), data.end(), itho_cc1101_header.begin(), itho_cc1101_header.end());
     if (pos != data.end()) {
         uint8_t offset = pos - data.begin();
-        ESP_LOGV(TAG, "Found Itho header at offset %d", offset);
+        ESP_LOGV(TAG, "Found Itho header at offset: %d", offset);
 
         auto end = std::find_first_of(pos, data.end(), itho_cc1101_footer.begin(), itho_cc1101_footer.end());
 #if 0
@@ -44,8 +44,8 @@ std::vector <uint8_t> IthoCC1101::get_data() {
         if (end != data.end()) {
             uint8_t endoffset = end - pos;
             uint8_t packet_size = end - pos - itho_cc1101_header.size();
-            ESP_LOGV(TAG, "Found Itho footer at offset %d", endoffset);
-            ESP_LOGV(TAG, "Packet size = %d", packet_size);
+            ESP_LOGV(TAG, "Found Itho footer at offset: %d", endoffset);
+            ESP_LOGV(TAG, "Packet size: %d", packet_size);
 
 #if 0
             if (packet_size % 2 == 1) {
@@ -92,9 +92,9 @@ std::vector <uint8_t> IthoCC1101::get_data() {
                 out[i] = x;
             }
 
-#ifdef ESPHOME_LOG_LEVEL_VERY_VERBOSE
+#ifdef ESPHOME_LOG_HAS_VERY_VERBOSE
             for (uint8_t i : out) {
-                ESP_LOGV(TAG, "Packet payload (%02X)", i);
+                ESP_LOGVV(TAG, "Packet payload (%02X)", i);
             }
 #endif
 
@@ -104,7 +104,7 @@ std::vector <uint8_t> IthoCC1101::get_data() {
             }
             //printf("%02x\n", crc);
             //uint8_t crc2 = 0 - crc;
-            ESP_LOGV(TAG, "Packet crc should be 0x00 (%02X)", crc);
+            ESP_LOGV(TAG, "Packet CRC: 0x%02X (%s)", crc, crc ? "invalid" : "valid");
 
         } // Footer
     } // Header
@@ -144,23 +144,33 @@ std::vector <uint8_t> IthoCC1101::get_data() {
 #endif
 
 
-bool IthoCC1101::get_fan_speed(uint8_t *speed) {
+bool IthoCC1101::get_fan_speed(std::vector<uint8_t> peer_rf_address, uint8_t *speed) {
 
     std::vector<uint8_t> data = this->get_data();
     *speed = 0xFF;
 
     if (has_valid_crc(data)) {
 
-        auto id = std::search(data.begin(), data.end(), packet::peer_id.begin(), packet::peer_id.end());
+        auto id = std::search(data.begin(), data.end(), peer_rf_address.begin(), peer_rf_address.end());
         auto pos = std::search(data.begin(), data.end(), itho_status.begin(), itho_status.end());
         if (data.size() == 11 &&              // 1 + 3 + 5 + 1 + 1
                 data[0] == 0x14 &&
-                id - data.begin() == 1 &&
                 pos - data.begin() == 4) {
+
             pos += itho_status.size();
             *speed = *pos;
 
-            ESP_LOGV(TAG, "Packet speed (%02X)", *speed);
+            if (peer_rf_address.size() > 0 && id - data.begin() != 1) {
+                // Not our peer rf address
+                return false;
+            }
+
+            ESP_LOGD(TAG, "Received fan speed status: peer rf address %02X:%02X:%02X, speed 0x%02X", data[1], data[2], data[3], *speed);
+
+            if (peer_rf_address.size() ==  0) {
+                ESP_LOGI(TAG, "No peer rf address configured, ignoring above status!");
+                return false;
+            }
             return true;
         }
     }
@@ -187,16 +197,16 @@ void IthoCC1101::send_command(std::string command) {
     }
 
     std::vector<uint8_t> cmd = packet::lead_in;
-    cmd.insert(cmd.end(), packet::remote_id.begin(), packet::remote_id.end());
+    cmd.insert(cmd.end(), this->rf_address_.begin(), this->rf_address_.end());
     cmd.push_back(this->counter_++);
     cmd.insert(cmd.end(), cmd_it->second.begin(), cmd_it->second.end());
 
     if (command == "join") {
-        cmd.insert(cmd.end(), packet::remote_id.begin(), packet::remote_id.end());
+        cmd.insert(cmd.end(), this->rf_address_.begin(), this->rf_address_.end());
         cmd.insert(cmd.end(), itho_commands.at("join_2").begin(), itho_commands.at("join_2").end());
-        cmd.insert(cmd.end(), packet::remote_id.begin(), packet::remote_id.end());
+        cmd.insert(cmd.end(), this->rf_address_.begin(), this->rf_address_.end());
     } else if (command == "leave") {
-        cmd.insert(cmd.end(), packet::remote_id.begin(), packet::remote_id.end());
+        cmd.insert(cmd.end(), this->rf_address_.begin(), this->rf_address_.end());
     }
 
     cmd.push_back(this->calc_crc(cmd));

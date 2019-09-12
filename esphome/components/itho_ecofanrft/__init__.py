@@ -21,11 +21,22 @@ MULTI_CONF = True
 AUTOLOAD = ['fan']
 
 CONF_ITHO_IRQ_PIN = 'irq_pin'
+CONF_RF_ADDRESS = 'rf_address'
+CONF_PEER_RF_ADDRESS = 'peer_rf_address'
 
-CONFIG_SCHEMA = cv.Schema({
+def validate(config):
+    if CONF_PEER_RF_ADDRESS in config:
+        if config[CONF_PEER_RF_ADDRESS] == config[CONF_RF_ADDRESS]:
+            raise cv.Invalid("RF address cannot be the same as peer RF address!")
+
+    return config
+
+CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.GenerateID(): cv.declare_id(IthoEcoFanRftComponent),
     cv.Required(CONF_ITHO_IRQ_PIN): pins.gpio_input_pin_schema,
-}).extend(cv.COMPONENT_SCHEMA).extend(spi.SPI_DEVICE_SCHEMA)
+    cv.Required(CONF_RF_ADDRESS): cv.rf_address,
+    cv.Optional(CONF_PEER_RF_ADDRESS): cv.rf_address,
+}).extend(cv.COMPONENT_SCHEMA).extend(spi.SPI_DEVICE_SCHEMA), validate)
 
 
 ECOFAN_ACTION_SCHEMA = maybe_simple_id({
@@ -41,8 +52,13 @@ def fan_join_to_code(config, action_id, template_arg, args):
 
 def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
-    yield cg.register_component(var, config)
-    yield spi.register_spi_device(var, config)
 
     irq = yield cg.gpio_pin_expression(config[CONF_ITHO_IRQ_PIN])
     cg.add(var.set_irq_pin(irq))
+
+    cg.add(var.set_rf_address(config[CONF_RF_ADDRESS].as_hex))
+    if CONF_PEER_RF_ADDRESS in config:
+        cg.add(var.set_peer_rf_address(config[CONF_PEER_RF_ADDRESS].as_hex))
+
+    yield cg.register_component(var, config)
+    yield spi.register_spi_device(var, config)

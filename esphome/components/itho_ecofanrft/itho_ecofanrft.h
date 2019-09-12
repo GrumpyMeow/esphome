@@ -47,6 +47,18 @@ class IthoEcoFanRftComponent : public Component,
 
   void set_mosi_pin(GPIOPin *mosi) { mosi_ = mosi; }
   void set_irq_pin(GPIOPin *irq) { irq_ = irq; }
+  void set_rf_address(uint64_t address) {
+      this->rf_address_.resize(3, 0);
+      for (uint8_t i = 0; i < 3; i++) {
+          this->rf_address_[i] = (address >> (8 * (2 - i))) & 0xff;
+      }
+  }
+  void set_peer_rf_address(uint64_t address) {
+      this->peer_rf_address_.resize(3, 0);
+      for (uint8_t i = 0; i < 3; i++) {
+          this->peer_rf_address_[i] = (address >> (8 * (2 - i))) & 0xff;
+      }
+  }
 
   IthoEcoFanRftFan *get_fan() {
       auto f = new IthoEcoFanRftFan(this);
@@ -58,9 +70,14 @@ class IthoEcoFanRftComponent : public Component,
 
 
  protected:
+  std::string format_addr_(std::vector<uint8_t> addr);
+
   IthoEcoFanRftFan *fan_;
   GPIOPin *mosi_;
   GPIOPin *irq_;
+
+  std::vector<uint8_t> rf_address_;
+  std::vector<uint8_t> peer_rf_address_;
 
   IthoEcoFanRftComponentStore store_;
 

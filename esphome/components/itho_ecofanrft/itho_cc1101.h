@@ -10,7 +10,7 @@ namespace itho_ecofanrft {
 class IthoCC1101 {
  
  public:
-  IthoCC1101(CC1101 *cc1101) : cc1101_(cc1101) {};
+  IthoCC1101(CC1101 *cc1101, std::vector<uint8_t> rf_address) : cc1101_(cc1101), rf_address_(rf_address) {};
  
   void init_receive_mode();
   void enable_receive_mode() {
@@ -18,7 +18,7 @@ class IthoCC1101 {
      this->cc1101_->receive();
   }
   std::vector<uint8_t> get_data();
-  bool get_fan_speed(uint8_t *speed);
+  bool get_fan_speed(std::vector<uint8_t> peer_rf_address, uint8_t *speed);
   bool has_valid_crc(std::vector<uint8_t> data) { return this->calc_crc(data) == 0x00; }
 
   uint8_t calc_crc(std::vector<uint8_t> data);
@@ -37,6 +37,7 @@ class IthoCC1101 {
   std::uint8_t counter_ = 0;
 
   CC1101 *cc1101_{nullptr};
+  std::vector<uint8_t> rf_address_;
 };
 
 

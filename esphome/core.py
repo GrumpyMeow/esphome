@@ -63,6 +63,23 @@ class MACAddress(object):
         return RawExpression('0x{}ULL'.format(num))
 
 
+class RFAddress(object):
+    def __init__(self, *parts):
+        if len(parts) != 3:
+            raise ValueError(u"RF Address must consist of 3 items")
+        self.parts = parts
+
+    def __str__(self):
+        return ':'.join('{:02X}'.format(part) for part in self.parts)
+
+    @property
+    def as_hex(self):
+        from esphome.cpp_generator import RawExpression
+
+        num = ''.join('{:02X}'.format(part) for part in self.parts)
+        return RawExpression('0x{}ULL'.format(num))
+
+
 def is_approximately_integer(value):
     if isinstance(value, integer_types):
         return True

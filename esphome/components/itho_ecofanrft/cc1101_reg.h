@@ -3,27 +3,11 @@
 namespace esphome {
 namespace itho_ecofanrft {
 
-/*
- * Author: Klusjesman, modified bij supersjimmie for Arduino/ESP8266
- * modified
- */
-
 /* Type of transfers */
 static const uint8_t CC1101_WRITE_SINGLE = 0x00;
 static const uint8_t CC1101_WRITE_BURST = 0x40;
 static const uint8_t CC1101_READ_SINGLE = 0x80;
 static const uint8_t CC1101_READ_BURST = 0xC0;
-
-/* Type of register */
-static const uint8_t CC1101_CONFIG_REGISTER = CC1101_READ_SINGLE;
-static const uint8_t CC1101_STATUS_REGISTER = CC1101_READ_BURST;
-
-/* PATABLE & FIFO's */
-static const uint8_t CC1101_PATABLE = 0x3E;           // PATABLE address
-static const uint8_t CC1101_TXFIFO = 0x3F;            // TX FIFO address
-static const uint8_t CC1101_RXFIFO = 0x3F;            // RX FIFO address
-static const uint8_t C_C1101_PA_LOW_POWER = 0x60;
-static const uint8_t C_C1101_PA_LONG_DISTANCE = 0xC0;
 
 /* CC1101 configuration registers */
 static const uint8_t CC1101_IOCFG2 = 0x00;            // GDO2 Output Pin Configuration
@@ -105,10 +89,15 @@ static const uint8_t CC1101_RXBYTES = 0x3B;           // Overflow and Number of 
 static const uint8_t CC1101_RCCTRL1_STATUS = 0x3C;    // Last RC Oscillator Calibration Result
 static const uint8_t CC1101_RCCTRL0_STATUS = 0x3D;    // Last RC Oscillator Calibration Result
 
+/* PATABLE & FIFO registers */
+static const uint8_t CC1101_PATABLE = 0x3E;           // PATABLE address
+static const uint8_t CC1101_TXFIFO = 0x3F;            // TX FIFO address
+static const uint8_t CC1101_RXFIFO = 0x3F;            // RX FIFO address
+
 /* Bit fields in the chip status byte */
-static const uint8_t CC1101_STATUS_CHIP_RD_YN_BM = 0x80;
-static const uint8_t CC1101_STATUS_STATE_BM = 0x70;
-static const uint8_t CC1101_STATUS_FIFO_BYTES_AVAILABLE_BM = 0x0F;
+//static const uint8_t CC1101_STATUS_CHIP_RD_YN_BM = 0x80;
+//static const uint8_t CC1101_STATUS_STATE_BM = 0x70;
+//static const uint8_t CC1101_STATUS_FIFO_BYTES_AVAILABLE_BM = 0x0F;
 
 /* Masks to retrieve status bit */
 static const uint8_t CC1101_BITS_FIFO_UNDERFLOW = 0x80;
@@ -144,58 +133,5 @@ enum CC1101MarcStates
  CC1101_MARCSTATE_TXFIFO_UNDERFLOW = 0x16
 };
 
-
-/* Chip states */
-enum CC1101ChipStates
-{
- CC1101_STATE_MASK = 0x70,
- CC1101_STATE_IDLE = 0x00,
- CC1101_STATE_RX = 0x10,
- CC1101_STATE_TX = 0x20,
- CC1101_STATE_FSTXON = 0x30,
- CC1101_STATE_CALIBRATE = 0x40,
- CC1101_STATE_SETTLING = 0x50,
- CC1101_STATE_RX_OVERFLOW = 0x60,
- CC1101_STATE_TX_UNDERFLOW = 0x70 
-};
-
-
-#if 0
-class CC1101
-{
- 
- public:
-     C1101(GPIOPin *cs, GPIOPin *miso) : cs_(cs), miso_(miso) {}
- 
- void init();
-
- void send_data(const std::vector<uint8_t> &data);
- std::vector<uint8_t> &receive_data(const uint8_t max_length);
-
- uint8_t write_command_strobe_(const uint8_t command);
-
- void write_register_(const uint8_t address, const uint8_t data);
- uint8_t read_register_(const uint8_t address);
- 
- void write_burst_register_(const uint8_t address, const std::vector<uint8_t> &data);
- std::vector<uint8_t> read_burst_register_(const uint8_t address, const uint8_t max_length);
- 
- protected:
-  void select_();
-  void deselect_();
-
-
-  uint8_t read_register_(uint8_t address);
-  uint8_t read_register_median3_(uint8_t address);
-
-  uint8_t read_register_with_sync_problem_(const uint8_t address);
- 
-  void reset_();
-
- GPIOPin cs_{nullptr};
- GPIOPin miso_{nullptr};
-#endif
- 
-
 };  // namespace itho_ecofanrft
-} // namespace itho_ecofanrft
+} // namespace esphome

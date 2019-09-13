@@ -24,12 +24,14 @@ CONF_ITHO_IRQ_PIN = 'irq_pin'
 CONF_RF_ADDRESS = 'rf_address'
 CONF_PEER_RF_ADDRESS = 'peer_rf_address'
 
+
 def validate(config):
     if CONF_PEER_RF_ADDRESS in config:
         if config[CONF_PEER_RF_ADDRESS] == config[CONF_RF_ADDRESS]:
             raise cv.Invalid("RF address cannot be the same as peer RF address!")
 
     return config
+
 
 CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.GenerateID(): cv.declare_id(IthoEcoFanRftComponent),

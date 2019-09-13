@@ -18,7 +18,7 @@ void ICACHE_RAM_ATTR IthoEcoFanRftComponentStore::reset() {
 }
 
 std::string IthoEcoFanRftComponent::format_addr_(std::vector<uint8_t> addr) {
-  std::string s = "";
+  std::string s;
   char buf[20];
   for (uint8_t a : addr) {
       sprintf(&buf[0], "%02X:", a);
@@ -36,7 +36,6 @@ void itho_ecofanrft::IthoEcoFanRftComponent::dump_config() {
   ESP_LOGCONFIG(TAG, "  RF Peer Address: '%s'", this->format_addr_(this->peer_rf_address_).c_str());
   LOG_PIN("  CS Pin: ", this->cs_);
   LOG_PIN("  IRQ Pin: ", this->irq_);
-
 
 #ifdef ESPHOME_LOG_HAS_VERY_VERBOSE
   std::vector<uint8_t> config = this->cc1101_->read_burst_register(0x00, 47);
@@ -62,15 +61,15 @@ void IthoEcoFanRftComponent::setup() {
     return;
   }
 
-  // Setup module for receiving RF event
-  this->itho_cc1101_->init_receive_mode();
+  // Setup module for Itho protocol
+  this->itho_cc1101_->init_itho();
 
   // Enable interrupt on packet in RX FIFO
   this->store_.data_available = false;
   this->store_.count = 0;
   this->store_.pin = this->irq_->to_isr();
   this->irq_->attach_interrupt(IthoEcoFanRftComponentStore::gpio_intr, &this->store_, RISING);
- 
+
   auto traits = fan::FanTraits(false, true);    // No oscillating, just speed
   this->fan_->set_traits(traits);
   this->fan_->add_on_state_callback([this]() { this->next_update_ = true; });
@@ -87,12 +86,6 @@ void IthoEcoFanRftComponent::loop() {
     int16_t rssi = this->cc1101_->read_rssi();
 
     ESP_LOGD(TAG, "Data available in RX FIFO! (%02x) (%4d dBm)", this->store_.count, rssi);
-
-    if (rssi > -75) {
-        //std::vector <uint8_t> payload = this->itho_cc1101_->get_data();
-        //
-
-    }
 
     {
         uint8_t speed;
@@ -114,144 +107,11 @@ void IthoEcoFanRftComponent::loop() {
                 call.set_state(false);
             }
             call.perform();
+
+            // next_update should not run after RF status update
             this->next_update_ = false;
         }
     }
-
-
-    //this->itho_cc1101_->send_command("timer1");
-#if 0                   
-
-    { 
-
-        if (rssi > -75) {
-            std::vector <uint8_t> data = this->cc1101_->receive_data(64);
-            //this->cc1101_->write_command_strobe(CC1101_SFRX);
-            //
-            ESP_LOGD(TAG, "Good RSSI, probing..");
-
-            //static const std::vector<uint8_t> itho_cc1101_header = {0x00, 0xb3, 0x2a, 0xab, 0x2a};
-            auto pos = std::search(data.begin(), data.end(), itho_cc1101_header.begin(), itho_cc1101_header.end());
-            if (pos != data.end()) {
-                uint8_t offset = pos - data.begin();
-                ESP_LOGV(TAG, "Found Itho header at offset %d", offset);
-
-#if 0
-                if (offset > 0) {
-                    for (uint8_t i : data) {
-                        //ESP_LOGV(TAG, "Packet data (%02X)", i);
-                    }
-                }
-#endif
-
-                auto end = std::find(pos, data.end(), 0xAC);
-                if (end == data.end()) {
-                    end = std::find(pos, data.end(), 0xCA);
-                }
-
-                if (end != data.end()) {
-                    uint8_t endoffset = end - pos;
-                    ESP_LOGV(TAG, "Found Itho footer at offset %d", endoffset);
-                    ESP_LOGV(TAG, "Packet size = %d", endoffset - 5);
-
-                    std::vector <bool> raw1, raw2, raw3;
-                    raw1.resize((endoffset - 5) * 8, false);
-                    for (uint8_t i = 0; i < (endoffset - 5); i++) {
-                        uint8_t c = data[i + 5 + offset];
-                        for (uint8_t j = 0; j < 8; j++) {
-                            uint16_t idx = i * 8 + 7 - j;
-                            bool v = (c >> j) & 1;
-                            raw1[idx] = v;
-                        }
-                    }
-
-                    raw2.resize(raw1.size() / 2, false);
-                    for (uint16_t i = 0; i < raw2.size(); i++) {
-                        raw2[i] = raw1[i*2];
-                    }
-
-                    // div into group of 5, drop last bit and reverse
-                    unsigned int nf = (raw2.size() / 5);
-                    unsigned int fl = nf * 4;
-                    raw3.resize(fl, false);
-                    for (unsigned int i = 0; i < nf; i++)
-                    {
-                        for (unsigned int j = 0; j < 4; j++)
-                        {
-                            raw3[(i * 4 + j)] = raw2[(i * 5 + (3 - j))];
-                        }
-                        //std::cout << raw2[i*5+4];
-                    }
-
-                    std::vector <uint8_t> out;
-                    out.resize(raw3.size() / 8, 0);
-
-                    for (unsigned int i = 0; i < out.size(); i++) {
-                        uint8_t x;
-                        x = raw3[i*8] << 7 | raw3[i*8+1] << 6 | raw3[i*8+2] << 5 | raw3[i*8+3] << 4;
-                        x |= raw3[i*8+4] << 3 | raw3[i*8+5] << 2 | raw3[i*8+6] << 1 | raw3[i*8+7];
-                        out[i] = x;
-                    }
-
-                    for (uint8_t i : out) {
-                        ESP_LOGV(TAG, "Packet payload (%02X)", i);
-                    }
-
-                    uint8_t crc = 0;
-                    for (unsigned int i = 0; i < out.size() - 1; i++) {
-                        crc = (crc + out[i]) & 0xFF;
-                    }
-                    //printf("%02x\n", crc);
-                    uint8_t crc2 = 0 - crc;
-                    ESP_LOGV(TAG, "Packet crc (%02X)", crc2);
-
-
-
-#if 0
-
-                    std::vector <uint8_t> p;
-
-                    for (uint8_t i = offset + 5; i < endoffset - 1; i+=2) {
-
-                        uint16_t x = data[i] << 8 | data[i+1];
-                        if (i == offset + 5) {
-                            ESP_LOGV(TAG, "Packet (%04X)", x);
-                        }
-                        x = ((x & 0x8888) >> 2) | ((x & 0x2222) >> 1);
-                        if (i == offset + 5) {
-                            ESP_LOGV(TAG, "Packet (%04X)", x);
-                        }
-                        x = ((x & 0x3030) >> 2) | ((x & 0x0303) >> 0);
-                        if (i == offset + 5) {
-                            ESP_LOGV(TAG, "Packet (%04X)", x);
-                        }
-                        x = ((x & 0x0F00) >> 4) | ((x & 0x000F) >> 0);
-                        if (i == offset + 5) {
-                            ESP_LOGV(TAG, "Packet (%04X)", x);
-                        }
-                        p.push_back((uint8_t) x);
-                    }
-
-
-                    for (uint8_t i : p) {
-                        ESP_LOGV(TAG, "Packet payload (%02X)", i);
-                    }
-
-#endif
-   
-                } else {
-
-                    for (uint8_t i : data) {
-                        ESP_LOGV(TAG, "Packet payload (%02X)", i);
-                    }
-                }
-            } else {
-                ESP_LOGV(TAG, "No header found");
-            }
-        } else {
-            ESP_LOGV(TAG, "Too low RSSI");
-        }
-#endif
     this->itho_cc1101_->enable_receive_mode();
   }
 
@@ -262,7 +122,7 @@ void IthoEcoFanRftComponent::loop() {
   this->next_update_ = false;
 
   {
-    std::string speed = "";
+    std::string speed;
 
     if (this->fan_->state) {
       if (this->fan_->speed == fan::FAN_SPEED_LOW)
@@ -273,7 +133,7 @@ void IthoEcoFanRftComponent::loop() {
         speed = "high";
     }
     ESP_LOGD(TAG, "Setting speed: '%s'", speed.c_str());
-  
+
     bool enable = this->fan_->state;
     if (enable) {
         ESP_LOGD(TAG, "Sending speed: '%s'", speed.c_str());
@@ -282,7 +142,7 @@ void IthoEcoFanRftComponent::loop() {
         ESP_LOGD(TAG, "Sending speed: min");
         this->itho_cc1101_->send_command("min");
     }
-    // After command switch back to receive mode
+    // After sending command switch back to receive mode
     this->itho_cc1101_->enable_receive_mode();
 
     ESP_LOGD(TAG, "Setting itho_ecofanrft state: %s", ONOFF(enable));

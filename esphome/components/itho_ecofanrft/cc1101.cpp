@@ -1,6 +1,3 @@
-//#include "esphome/core/component.h"
-//#include "esphome/components/spi/spi.h"
-//#include "itho_ecofanrft.h"
 #include "esphome/core/log.h"
 #include "cc1101.h"
 #include "cc1101_reg.h"
@@ -10,7 +7,7 @@ namespace esphome {
 namespace itho_ecofanrft {
 
 static const char *TAG = "itho_ecofanrft.cc1101";
- 
+
 bool CC1101::init() {
     uint8_t partnum, version;
 
@@ -56,27 +53,6 @@ std::vector<uint8_t> CC1101::receive_data(const uint8_t max_length) {
     in_bytes  = this->read_burst_register(CC1101_RXFIFO, in_bytes_available);
 
     return in_bytes;
-
-#if 0
-    rxbuffer[0] = 0;
-    *pktlen = 0;
-    if ((bytes_in_RXFIFO & 0x7F) && !(bytes_in_RXFIFO & 0x80)) {
-		*pktlen = spi_read_register(RXFIFO_SINGLE_BYTE); //received pktlen +1 for complete TX buffer
-		rxbuffer[0] = *pktlen;
-		for (uint8_t i = 1;i < *pktlen + 3;i++) {         //+3 because of i=1 and RSSI and LQI
-			rxbuffer[i] = spi_read_register(RXFIFO_SINGLE_BYTE);
-		}
-	    if (debug_level > 0) {
-			//shows rx_buffer for debug
-			printf("RX_FIFO: ");
-			for(uint8_t i = 0 ; i < *pktlen + 3; i++) {
-				printf("%02x ", rxbuffer[i]);
-			}
-			printf("\r\n");
-	    }
-    }
-    else if (debug_level > 0) printf("RX_FIFO: bad RX buffer [%02x]\r\n", bytes_in_RXFIFO);
-#endif
 }
 
 uint8_t CC1101::write_command_strobe(const uint8_t command) {
@@ -206,7 +182,7 @@ uint8_t CC1101::read_register(const uint8_t address) {
     }
     return this->read_register_(address);
 }
- 
+
 void CC1101::write_burst_register(const uint8_t address, const std::vector<uint8_t> &data) {
 
     if (address >= 0x00 && address <= 0x2E) {
@@ -265,7 +241,7 @@ std::vector<uint8_t> CC1101::read_burst_register(const uint8_t address, const ui
 
     return in_bytes;
 }
- 
+
 uint8_t CC1101::read_register_(const uint8_t address) {
     uint8_t in_byte;
 
@@ -293,7 +269,7 @@ uint8_t CC1101::read_register_with_sync_problem_(const uint8_t address) {
 
     return in_byte1;
 }
- 
+
 void CC1101::reset_(bool power_on_reset) {
 
   if (power_on_reset) {

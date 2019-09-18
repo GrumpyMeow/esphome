@@ -134,13 +134,15 @@ uint8_t IthoCC1101::calc_checksum(std::vector<uint8_t> data) {
 }
 
 
-void IthoCC1101::send_command(std::string command) {
+void IthoCC1101::prepare_packet(std::string command) {
 
     auto cmd_it = ITHO_COMMANDS.find(command);
     if (cmd_it == ITHO_COMMANDS.end()) {
         ESP_LOGD(TAG, "Unknown command '%s'", command.c_str());
         return;
     }
+
+    this->tries_ = 3;
 
     std::vector<uint8_t> cmd = packet::INDICATOR_COMMAND;
     cmd.insert(cmd.end(), this->rf_address_.begin(), this->rf_address_.end());
@@ -191,18 +193,33 @@ void IthoCC1101::send_command(std::string command) {
         out[i] = x;
     }
 
-    std::vector<uint8_t> rf_data = packet::ITHO_CC1101_HEADER;
-    rf_data.insert(rf_data.end(), out.begin(), out.end());
+    this->packet_ = packet::ITHO_CC1101_HEADER;
+    //std::vector<uint8_t> this->packet_ = packet::ITHO_CC1101_HEADER;
+    this->packet_.insert(this->packet_.end(), out.begin(), out.end());
     if (cmd.size() % 2 == 0) {
-        rf_data.push_back(packet::FOOTER_EVEN);
+        this->packet_.push_back(packet::FOOTER_EVEN);
     } else {
-        rf_data.push_back(packet::FOOTER_ODD);
+        this->packet_.push_back(packet::FOOTER_ODD);
     }
-    while (rf_data.size() < MAX_PACKET_LEN) {
-        rf_data.push_back(packet::POSTAMBLE);
+    while (this->packet_.size() < MAX_PACKET_LEN) {
+        this->packet_.push_back(packet::POSTAMBLE);
+    }
+}
+
+uint8_t IthoCC1101::send_packet() {
+
+    ESP_LOGV(TAG, "%d tries left for sending packet of %d bytes", this->tries_, this->packet_.size());
+    if (this->packet_.size() > 0 && this->tries_-- > 0) {
+        this->cc1101_->send_data(this->packet_);
     }
 
-    this->cc1101_->send_data(rf_data);
+    return this->tries_;
+}
+
+void IthoCC1101::send_command(std::string command) {
+
+    this->prepare_packet(command);
+    this->send_packet();
 }
 
 } // namespace itho_ecofanrft

@@ -137,13 +137,11 @@ void IthoEcoFanRftComponent::loop() {
     bool enable = this->fan_->state;
     if (enable) {
         ESP_LOGD(TAG, "Sending speed: '%s'", speed.c_str());
-        this->itho_cc1101_->send_command(speed);
+        this->send_command(speed);
     } else {
         ESP_LOGD(TAG, "Sending speed: min");
-        this->itho_cc1101_->send_command("min");
+        this->send_command("min");
     }
-    // After sending command switch back to receive mode
-    this->itho_cc1101_->enable_receive_mode();
 
     ESP_LOGD(TAG, "Setting itho_ecofanrft state: %s", ONOFF(enable));
   }
@@ -152,8 +150,33 @@ float IthoEcoFanRftComponent::get_setup_priority() const { return setup_priority
 
 void IthoEcoFanRftComponent::join() {
   ESP_LOGD(TAG, "Fan '%s': join() called", this->fan_->get_name().c_str());
-  this->itho_cc1101_->send_command("join");
-  this->itho_cc1101_->enable_receive_mode();
+  this->send_command("join");
+}
+
+void IthoEcoFanRftComponent::send_command(std::string command) {
+
+    this->itho_cc1101_->send_command(command);
+
+    // After sending command switch back to receive mode
+    this->itho_cc1101_->enable_receive_mode();
+
+    this->set_timeout("send_command", 40, [this]() {
+            this->schedule_send_packet_();
+    });
+}
+
+void IthoEcoFanRftComponent::schedule_send_packet_() {
+
+    uint8_t tries_left =  this->itho_cc1101_->send_packet();
+
+    // After sending packet switch back to receive mode
+    this->itho_cc1101_->enable_receive_mode();
+
+    if (tries_left > 0) {
+        this->set_timeout("send_command", 50, [this]() {
+                this->schedule_send_packet_();
+        });
+    }
 }
 
 } // namespace itho_ecofanrft

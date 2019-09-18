@@ -67,10 +67,13 @@ class IthoEcoFanRftComponent : public Component,
   }
 
   void join();
+  void send_command(std::string command);
 
 
  protected:
   std::string format_addr_(std::vector<uint8_t> addr);
+
+  void schedule_send_packet_();
 
   IthoEcoFanRftFan *fan_;
   GPIOPin *mosi_;

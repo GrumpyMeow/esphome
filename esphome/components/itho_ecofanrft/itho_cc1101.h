@@ -25,6 +25,9 @@ class IthoCC1101 {
 
   void send_command(std::string command);
 
+  uint8_t send_packet();
+  void prepare_packet(std::string command);
+
  protected:
 
   void manchester_decode_();
@@ -33,8 +36,9 @@ class IthoCC1101 {
   void manchester_encode_();
   void add_sync_bits_and_reverse_();
 
-  std::vector<uint8_t> data_;
+  std::vector<uint8_t> packet_;
   std::uint8_t counter_ = 0;
+  std::uint8_t tries_ = 0;
 
   CC1101 *cc1101_{nullptr};
   std::vector<uint8_t> rf_address_;

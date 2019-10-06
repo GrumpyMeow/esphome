@@ -33,7 +33,9 @@ void itho_ecofanrft::IthoEcoFanRftComponent::dump_config() {
 
   ESP_LOGCONFIG(TAG, "Itho EcoFanRft '%s'", this->fan_->get_name().c_str());
   ESP_LOGCONFIG(TAG, "  RF Address: '%s'", this->format_addr_(this->rf_address_).c_str());
-  ESP_LOGCONFIG(TAG, "  RF Peer Address: '%s'", this->format_addr_(this->peer_rf_address_).c_str());
+  if (this->peer_rf_address_.size() > 0) {
+    ESP_LOGCONFIG(TAG, "  RF Peer Address: '%s'", this->format_addr_(this->peer_rf_address_).c_str());
+  }
   LOG_PIN("  CS Pin: ", this->cs_);
   LOG_PIN("  IRQ Pin: ", this->irq_);
 

@@ -1,12 +1,12 @@
 #include "xiaomi_mjyd02yla.h"
 #include "esphome/core/log.h"
 
-#ifdef ARDUINO_ARCH_ESP32
+#ifdef USE_ESP32
 
 namespace esphome {
 namespace xiaomi_mjyd02yla {
 
-static const char *TAG = "xiaomi_mjyd02yla";
+static const char *const TAG = "xiaomi_mjyd02yla";
 
 void XiaomiMJYD02YLA::dump_config() {
   ESP_LOGCONFIG(TAG, "Xiaomi MJYD02YL-A");
@@ -14,6 +14,7 @@ void XiaomiMJYD02YLA::dump_config() {
   LOG_BINARY_SENSOR("  ", "Light", this->is_light_);
   LOG_SENSOR("  ", "Idle Time", this->idle_time_);
   LOG_SENSOR("  ", "Battery Level", this->battery_level_);
+  LOG_SENSOR("  ", "Illuminance", this->illuminance_);
 }
 
 bool XiaomiMJYD02YLA::parse_device(const esp32_ble_tracker::ESPBTDevice &device) {
@@ -47,6 +48,8 @@ bool XiaomiMJYD02YLA::parse_device(const esp32_ble_tracker::ESPBTDevice &device)
       this->idle_time_->publish_state(*res->idle_time);
     if (res->battery_level.has_value() && this->battery_level_ != nullptr)
       this->battery_level_->publish_state(*res->battery_level);
+    if (res->illuminance.has_value() && this->illuminance_ != nullptr)
+      this->illuminance_->publish_state(*res->illuminance);
     if (res->is_light.has_value() && this->is_light_ != nullptr)
       this->is_light_->publish_state(*res->is_light);
     if (res->has_motion.has_value())
@@ -54,11 +57,7 @@ bool XiaomiMJYD02YLA::parse_device(const esp32_ble_tracker::ESPBTDevice &device)
     success = true;
   }
 
-  if (!success) {
-    return false;
-  }
-
-  return true;
+  return success;
 }
 
 void XiaomiMJYD02YLA::set_bindkey(const std::string &bindkey) {
@@ -69,7 +68,7 @@ void XiaomiMJYD02YLA::set_bindkey(const std::string &bindkey) {
   char temp[3] = {0};
   for (int i = 0; i < 16; i++) {
     strncpy(temp, &(bindkey.c_str()[i * 2]), 2);
-    bindkey_[i] = std::strtoul(temp, NULL, 16);
+    bindkey_[i] = std::strtoul(temp, nullptr, 16);
   }
 }
 

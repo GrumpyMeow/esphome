@@ -1,6 +1,9 @@
 #pragma once
 
+#include <list>
+
 #include "esphome/core/component.h"
+#include "esphome/core/hal.h"
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/i2c/i2c.h"
 
@@ -20,6 +23,8 @@ struct SequenceStepTimeouts {
 
 class VL53L0XSensor : public sensor::Sensor, public PollingComponent, public i2c::I2CDevice {
  public:
+  VL53L0XSensor();
+
   void setup() override;
 
   void dump_config() override;
@@ -30,6 +35,8 @@ class VL53L0XSensor : public sensor::Sensor, public PollingComponent, public i2c
 
   void set_signal_rate_limit(float signal_rate_limit) { signal_rate_limit_ = signal_rate_limit; }
   void set_long_range(bool long_range) { long_range_ = long_range; }
+  void set_timeout_us(uint32_t timeout_us) { this->timeout_us_ = timeout_us; }
+  void set_enable_pin(GPIOPin *enable) { this->enable_pin_ = enable; }
 
  protected:
   uint32_t get_measurement_timing_budget_() {
@@ -53,10 +60,11 @@ class VL53L0XSensor : public sensor::Sensor, public PollingComponent, public i2c
     if (enables.tcc)
       budget_us += (timeouts.msrc_dss_tcc_us + tcc_overhead);
 
-    if (enables.dss)
+    if (enables.dss) {
       budget_us += 2 * (timeouts.msrc_dss_tcc_us + dss_overhead);
-    else if (enables.msrc)
+    } else if (enables.msrc) {
       budget_us += (timeouts.msrc_dss_tcc_us + msrc_overhead);
+    }
 
     if (enables.pre_range)
       budget_us += (timeouts.pre_range_us + pre_range_overhead);
@@ -184,12 +192,13 @@ class VL53L0XSensor : public sensor::Sensor, public PollingComponent, public i2c
 
   uint8_t get_vcsel_pulse_period_(VcselPeriodType type) {
     uint8_t vcsel;
-    if (type == VCSEL_PERIOD_PRE_RANGE)
+    if (type == VCSEL_PERIOD_PRE_RANGE) {
       vcsel = reg(0x50).get();
-    else if (type == VCSEL_PERIOD_FINAL_RANGE)
+    } else if (type == VCSEL_PERIOD_FINAL_RANGE) {
       vcsel = reg(0x70).get();
-    else
+    } else {
       return 255;
+    }
 
     return (vcsel + 1) << 1;
   }
@@ -249,10 +258,17 @@ class VL53L0XSensor : public sensor::Sensor, public PollingComponent, public i2c
 
   float signal_rate_limit_;
   bool long_range_;
+  GPIOPin *enable_pin_{nullptr};
   uint32_t measurement_timing_budget_us_;
   bool initiated_read_{false};
   bool waiting_for_interrupt_{false};
   uint8_t stop_variable_;
+
+  uint16_t timeout_start_us_;
+  uint16_t timeout_us_{};
+
+  static std::list<VL53L0XSensor *> vl53_sensors;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+  static bool enable_pin_setup_complete;           // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 };
 
 }  // namespace vl53l0x

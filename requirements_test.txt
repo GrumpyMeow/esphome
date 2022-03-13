@@ -1,12 +1,13 @@
-pylint==2.6.0
-flake8==3.8.3
-pillow>4.0.0
-cryptography>=2.0.0,<4
-pexpect==4.8.0
+pylint==2.12.2
+flake8==4.0.1
+black==22.1.0
+pyupgrade==2.31.0
+pre-commit
 
 # Unit tests
-pytest==6.0.2
-pytest-cov==2.10.1
-pytest-mock==3.3.1
+pytest==7.0.1
+pytest-cov==3.0.0
+pytest-mock==3.7.0
+pytest-asyncio==0.18.2
 asyncmock==0.4.2
-hypothesis==5.21.0
+hypothesis==5.49.0

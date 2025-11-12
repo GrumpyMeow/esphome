@@ -1,6 +1,7 @@
 #pragma once
 
 #include <utility>
+#include <vector>
 
 #include "esphome/core/component.h"
 #include "esphome/components/uart/uart.h"
@@ -97,7 +98,7 @@ template<typename... Ts> class RFBridgeSendCodeAction : public Action<Ts...> {
   TEMPLATABLE_VALUE(uint16_t, high)
   TEMPLATABLE_VALUE(uint32_t, code)
 
-  void play(Ts... x) {
+  void play(const Ts &...x) {
     RFBridgeData data{};
     data.sync = this->sync_.value(x...);
     data.low = this->low_.value(x...);
@@ -117,7 +118,7 @@ template<typename... Ts> class RFBridgeSendAdvancedCodeAction : public Action<Ts
   TEMPLATABLE_VALUE(uint8_t, protocol)
   TEMPLATABLE_VALUE(std::string, code)
 
-  void play(Ts... x) {
+  void play(const Ts &...x) {
     RFBridgeAdvancedData data{};
     data.length = this->length_.value(x...);
     data.protocol = this->protocol_.value(x...);
@@ -133,7 +134,7 @@ template<typename... Ts> class RFBridgeLearnAction : public Action<Ts...> {
  public:
   RFBridgeLearnAction(RFBridgeComponent *parent) : parent_(parent) {}
 
-  void play(Ts... x) { this->parent_->learn(); }
+  void play(const Ts &...x) { this->parent_->learn(); }
 
  protected:
   RFBridgeComponent *parent_;
@@ -143,7 +144,7 @@ template<typename... Ts> class RFBridgeStartAdvancedSniffingAction : public Acti
  public:
   RFBridgeStartAdvancedSniffingAction(RFBridgeComponent *parent) : parent_(parent) {}
 
-  void play(Ts... x) { this->parent_->start_advanced_sniffing(); }
+  void play(const Ts &...x) { this->parent_->start_advanced_sniffing(); }
 
  protected:
   RFBridgeComponent *parent_;
@@ -153,7 +154,7 @@ template<typename... Ts> class RFBridgeStopAdvancedSniffingAction : public Actio
  public:
   RFBridgeStopAdvancedSniffingAction(RFBridgeComponent *parent) : parent_(parent) {}
 
-  void play(Ts... x) { this->parent_->stop_advanced_sniffing(); }
+  void play(const Ts &...x) { this->parent_->stop_advanced_sniffing(); }
 
  protected:
   RFBridgeComponent *parent_;
@@ -163,7 +164,7 @@ template<typename... Ts> class RFBridgeStartBucketSniffingAction : public Action
  public:
   RFBridgeStartBucketSniffingAction(RFBridgeComponent *parent) : parent_(parent) {}
 
-  void play(Ts... x) { this->parent_->start_bucket_sniffing(); }
+  void play(const Ts &...x) { this->parent_->start_bucket_sniffing(); }
 
  protected:
   RFBridgeComponent *parent_;
@@ -174,7 +175,7 @@ template<typename... Ts> class RFBridgeSendRawAction : public Action<Ts...> {
   RFBridgeSendRawAction(RFBridgeComponent *parent) : parent_(parent) {}
   TEMPLATABLE_VALUE(std::string, raw)
 
-  void play(Ts... x) { this->parent_->send_raw(this->raw_.value(x...)); }
+  void play(const Ts &...x) { this->parent_->send_raw(this->raw_.value(x...)); }
 
  protected:
   RFBridgeComponent *parent_;
@@ -185,7 +186,7 @@ template<typename... Ts> class RFBridgeBeepAction : public Action<Ts...> {
   RFBridgeBeepAction(RFBridgeComponent *parent) : parent_(parent) {}
   TEMPLATABLE_VALUE(uint16_t, duration)
 
-  void play(Ts... x) { this->parent_->beep(this->duration_.value(x...)); }
+  void play(const Ts &...x) { this->parent_->beep(this->duration_.value(x...)); }
 
  protected:
   RFBridgeComponent *parent_;

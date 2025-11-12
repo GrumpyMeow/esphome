@@ -1,22 +1,24 @@
-import esphome.codegen as cg
-import esphome.config_validation as cv
 from esphome import automation
+import esphome.codegen as cg
 from esphome.components import nfc
-from esphome.const import CONF_ID, CONF_ON_TAG_REMOVED, CONF_ON_TAG, CONF_TRIGGER_ID
+import esphome.config_validation as cv
+from esphome.const import (
+    CONF_ID,
+    CONF_ON_FINISHED_WRITE,
+    CONF_ON_TAG,
+    CONF_ON_TAG_REMOVED,
+    CONF_TRIGGER_ID,
+)
 
 CODEOWNERS = ["@OttoWinter", "@jesserockz"]
 AUTO_LOAD = ["binary_sensor", "nfc"]
 MULTI_CONF = True
 
 CONF_PN532_ID = "pn532_id"
-CONF_ON_FINISHED_WRITE = "on_finished_write"
 
 pn532_ns = cg.esphome_ns.namespace("pn532")
 PN532 = pn532_ns.class_("PN532", cg.PollingComponent)
 
-PN532OnTagTrigger = pn532_ns.class_(
-    "PN532OnTagTrigger", automation.Trigger.template(cg.std_string, nfc.NfcTag)
-)
 PN532OnFinishedWriteTrigger = pn532_ns.class_(
     "PN532OnFinishedWriteTrigger", automation.Trigger.template()
 )
@@ -30,7 +32,7 @@ PN532_SCHEMA = cv.Schema(
         cv.GenerateID(): cv.declare_id(PN532),
         cv.Optional(CONF_ON_TAG): automation.validate_automation(
             {
-                cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(PN532OnTagTrigger),
+                cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(nfc.NfcOnTagTrigger),
             }
         ),
         cv.Optional(CONF_ON_FINISHED_WRITE): automation.validate_automation(
@@ -42,7 +44,7 @@ PN532_SCHEMA = cv.Schema(
         ),
         cv.Optional(CONF_ON_TAG_REMOVED): automation.validate_automation(
             {
-                cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(PN532OnTagTrigger),
+                cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(nfc.NfcOnTagTrigger),
             }
         ),
     }

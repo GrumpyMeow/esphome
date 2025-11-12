@@ -1,4 +1,6 @@
 #include "lock.h"
+#include "esphome/core/defines.h"
+#include "esphome/core/controller_registry.h"
 #include "esphome/core/log.h"
 
 namespace esphome {
@@ -24,8 +26,7 @@ const char *lock_state_to_string(LockState state) {
   }
 }
 
-Lock::Lock(const std::string &name) : EntityBase(name), state(LOCK_STATE_NONE) {}
-Lock::Lock() : Lock("") {}
+Lock::Lock() : state(LOCK_STATE_NONE) {}
 LockCall Lock::make_call() { return LockCall(this); }
 
 void Lock::lock() {
@@ -54,10 +55,12 @@ void Lock::publish_state(LockState state) {
   this->rtc_.save(&this->state);
   ESP_LOGD(TAG, "'%s': Sending state %s", this->name_.c_str(), lock_state_to_string(state));
   this->state_callback_.call();
+#if defined(USE_LOCK) && defined(USE_CONTROLLER_REGISTRY)
+  ControllerRegistry::notify_lock_update(this);
+#endif
 }
 
 void Lock::add_on_state_callback(std::function<void()> &&callback) { this->state_callback_.add(std::move(callback)); }
-uint32_t Lock::hash_base() { return 856245656UL; }
 
 void LockCall::perform() {
   ESP_LOGD(TAG, "'%s' - Setting", this->parent_->get_name().c_str());

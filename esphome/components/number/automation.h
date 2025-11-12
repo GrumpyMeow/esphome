@@ -19,9 +19,28 @@ template<typename... Ts> class NumberSetAction : public Action<Ts...> {
   NumberSetAction(Number *number) : number_(number) {}
   TEMPLATABLE_VALUE(float, value)
 
-  void play(Ts... x) override {
+  void play(const Ts &...x) override {
     auto call = this->number_->make_call();
     call.set_value(this->value_.value(x...));
+    call.perform();
+  }
+
+ protected:
+  Number *number_;
+};
+
+template<typename... Ts> class NumberOperationAction : public Action<Ts...> {
+ public:
+  explicit NumberOperationAction(Number *number) : number_(number) {}
+  TEMPLATABLE_VALUE(NumberOperation, operation)
+  TEMPLATABLE_VALUE(bool, cycle)
+
+  void play(const Ts &...x) override {
+    auto call = this->number_->make_call();
+    call.with_operation(this->operation_.value(x...));
+    if (this->cycle_.has_value()) {
+      call.with_cycle(this->cycle_.value(x...));
+    }
     call.perform();
   }
 
@@ -55,7 +74,7 @@ template<typename... Ts> class NumberInRangeCondition : public Condition<Ts...> 
 
   void set_min(float min) { this->min_ = min; }
   void set_max(float max) { this->max_ = max; }
-  bool check(Ts... x) override {
+  bool check(const Ts &...x) override {
     const float state = this->parent_->state;
     if (std::isnan(this->min_)) {
       return state <= this->max_;

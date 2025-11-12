@@ -1,135 +1,77 @@
+import logging
+
 import esphome.codegen as cg
-import esphome.config_validation as cv
-from esphome import pins
 from esphome.components import sensor, voltage_sampler
+from esphome.components.esp32 import get_esp32_variant
+from esphome.components.nrf52.const import AIN_TO_GPIO, EXTRA_ADC
+from esphome.components.zephyr import (
+    zephyr_add_overlay,
+    zephyr_add_prj_conf,
+    zephyr_add_user,
+)
+from esphome.config_helpers import filter_source_files_from_platform
+import esphome.config_validation as cv
 from esphome.const import (
     CONF_ATTENUATION,
-    CONF_RAW,
     CONF_ID,
-    CONF_INPUT,
     CONF_NUMBER,
     CONF_PIN,
+    CONF_RAW,
     DEVICE_CLASS_VOLTAGE,
+    PLATFORM_NRF52,
     STATE_CLASS_MEASUREMENT,
     UNIT_VOLT,
+    PlatformFramework,
 )
 from esphome.core import CORE
-from esphome.components.esp32 import get_esp32_variant
-from esphome.components.esp32.const import (
-    VARIANT_ESP32,
-    VARIANT_ESP32C3,
-    VARIANT_ESP32H2,
-    VARIANT_ESP32S2,
-    VARIANT_ESP32S3,
+
+from . import (
+    ATTENUATION_MODES,
+    ESP32_VARIANT_ADC1_PIN_TO_CHANNEL,
+    ESP32_VARIANT_ADC2_PIN_TO_CHANNEL,
+    SAMPLING_MODES,
+    adc_ns,
+    adc_unit_t,
+    validate_adc_pin,
 )
 
+_LOGGER = logging.getLogger(__name__)
 
 AUTO_LOAD = ["voltage_sampler"]
 
-ATTENUATION_MODES = {
-    "0db": cg.global_ns.ADC_ATTEN_DB_0,
-    "2.5db": cg.global_ns.ADC_ATTEN_DB_2_5,
-    "6db": cg.global_ns.ADC_ATTEN_DB_6,
-    "11db": cg.global_ns.ADC_ATTEN_DB_11,
-    "auto": "auto",
-}
-
-adc1_channel_t = cg.global_ns.enum("adc1_channel_t")
-
-# From https://github.com/espressif/esp-idf/blob/master/components/driver/include/driver/adc_common.h
-# pin to adc1 channel mapping
-ESP32_VARIANT_ADC1_PIN_TO_CHANNEL = {
-    VARIANT_ESP32: {
-        36: adc1_channel_t.ADC1_CHANNEL_0,
-        37: adc1_channel_t.ADC1_CHANNEL_1,
-        38: adc1_channel_t.ADC1_CHANNEL_2,
-        39: adc1_channel_t.ADC1_CHANNEL_3,
-        32: adc1_channel_t.ADC1_CHANNEL_4,
-        33: adc1_channel_t.ADC1_CHANNEL_5,
-        34: adc1_channel_t.ADC1_CHANNEL_6,
-        35: adc1_channel_t.ADC1_CHANNEL_7,
-    },
-    VARIANT_ESP32S2: {
-        1: adc1_channel_t.ADC1_CHANNEL_0,
-        2: adc1_channel_t.ADC1_CHANNEL_1,
-        3: adc1_channel_t.ADC1_CHANNEL_2,
-        4: adc1_channel_t.ADC1_CHANNEL_3,
-        5: adc1_channel_t.ADC1_CHANNEL_4,
-        6: adc1_channel_t.ADC1_CHANNEL_5,
-        7: adc1_channel_t.ADC1_CHANNEL_6,
-        8: adc1_channel_t.ADC1_CHANNEL_7,
-        9: adc1_channel_t.ADC1_CHANNEL_8,
-        10: adc1_channel_t.ADC1_CHANNEL_9,
-    },
-    VARIANT_ESP32S3: {
-        1: adc1_channel_t.ADC1_CHANNEL_0,
-        2: adc1_channel_t.ADC1_CHANNEL_1,
-        3: adc1_channel_t.ADC1_CHANNEL_2,
-        4: adc1_channel_t.ADC1_CHANNEL_3,
-        5: adc1_channel_t.ADC1_CHANNEL_4,
-        6: adc1_channel_t.ADC1_CHANNEL_5,
-        7: adc1_channel_t.ADC1_CHANNEL_6,
-        8: adc1_channel_t.ADC1_CHANNEL_7,
-        9: adc1_channel_t.ADC1_CHANNEL_8,
-        10: adc1_channel_t.ADC1_CHANNEL_9,
-    },
-    VARIANT_ESP32C3: {
-        0: adc1_channel_t.ADC1_CHANNEL_0,
-        1: adc1_channel_t.ADC1_CHANNEL_1,
-        2: adc1_channel_t.ADC1_CHANNEL_2,
-        3: adc1_channel_t.ADC1_CHANNEL_3,
-        4: adc1_channel_t.ADC1_CHANNEL_4,
-    },
-    VARIANT_ESP32H2: {
-        0: adc1_channel_t.ADC1_CHANNEL_0,
-        1: adc1_channel_t.ADC1_CHANNEL_1,
-        2: adc1_channel_t.ADC1_CHANNEL_2,
-        3: adc1_channel_t.ADC1_CHANNEL_3,
-        4: adc1_channel_t.ADC1_CHANNEL_4,
-    },
-}
+CONF_SAMPLES = "samples"
+CONF_SAMPLING_MODE = "sampling_mode"
 
 
-def validate_adc_pin(value):
-    if str(value).upper() == "VCC":
-        return cv.only_on_esp8266("VCC")
-
-    if CORE.is_esp32:
-        value = pins.internal_gpio_input_pin_number(value)
-        variant = get_esp32_variant()
-        if variant not in ESP32_VARIANT_ADC1_PIN_TO_CHANNEL:
-            raise cv.Invalid(f"This ESP32 variant ({variant}) is not supported")
-
-        if value not in ESP32_VARIANT_ADC1_PIN_TO_CHANNEL[variant]:
-            raise cv.Invalid(f"{variant} doesn't support ADC on this pin")
-        return pins.internal_gpio_input_pin_schema(value)
-
-    if CORE.is_esp8266:
-        from esphome.components.esp8266.gpio import CONF_ANALOG
-
-        value = pins.internal_gpio_pin_number({CONF_ANALOG: True, CONF_INPUT: True})(
-            value
-        )
-
-        if value != 17:  # A0
-            raise cv.Invalid("ESP8266: Only pin A0 (GPIO17) supports ADC.")
-        return pins.gpio_pin_schema(
-            {CONF_ANALOG: True, CONF_INPUT: True}, internal=True
-        )(value)
-
-    raise NotImplementedError
+_attenuation = cv.enum(ATTENUATION_MODES, lower=True)
+_sampling_mode = cv.enum(SAMPLING_MODES, lower=True)
 
 
 def validate_config(config):
     if config[CONF_RAW] and config.get(CONF_ATTENUATION, None) == "auto":
-        raise cv.Invalid("Automatic attenuation cannot be used when raw output is set.")
+        raise cv.Invalid("Automatic attenuation cannot be used when raw output is set")
+
+    if config.get(CONF_ATTENUATION, None) == "auto" and config.get(CONF_SAMPLES, 1) > 1:
+        raise cv.Invalid(
+            "Automatic attenuation cannot be used when multisampling is set"
+        )
+    if config.get(CONF_ATTENUATION) == "11db":
+        _LOGGER.warning(
+            "`attenuation: 11db` is deprecated, use `attenuation: 12db` instead"
+        )
+        # Alter value here so `config` command prints the recommended change
+        config[CONF_ATTENUATION] = _attenuation("12db")
+
     return config
 
 
-adc_ns = cg.esphome_ns.namespace("adc")
 ADCSensor = adc_ns.class_(
     "ADCSensor", sensor.Sensor, cg.PollingComponent, voltage_sampler.VoltageSampler
 )
+
+CONF_NRF_SAADC = "nrf_saadc"
+
+adc_dt_spec = cg.global_ns.class_("adc_dt_spec")
 
 CONFIG_SCHEMA = cv.All(
     sensor.sensor_schema(
@@ -144,13 +86,18 @@ CONFIG_SCHEMA = cv.All(
             cv.Required(CONF_PIN): validate_adc_pin,
             cv.Optional(CONF_RAW, default=False): cv.boolean,
             cv.SplitDefault(CONF_ATTENUATION, esp32="0db"): cv.All(
-                cv.only_on_esp32, cv.enum(ATTENUATION_MODES, lower=True)
+                cv.only_on_esp32, _attenuation
             ),
+            cv.OnlyWith(CONF_NRF_SAADC, PLATFORM_NRF52): cv.declare_id(adc_dt_spec),
+            cv.Optional(CONF_SAMPLES, default=1): cv.int_range(min=1, max=255),
+            cv.Optional(CONF_SAMPLING_MODE, default="avg"): _sampling_mode,
         }
     )
     .extend(cv.polling_component_schema("60s")),
     validate_config,
 )
+
+CONF_ADC_CHANNEL_ID = "adc_channel_id"
 
 
 async def to_code(config):
@@ -160,21 +107,90 @@ async def to_code(config):
 
     if config[CONF_PIN] == "VCC":
         cg.add_define("USE_ADC_SENSOR_VCC")
-    else:
+    elif config[CONF_PIN] == "TEMPERATURE":
+        cg.add(var.set_is_temperature())
+    elif not CORE.is_nrf52 or config[CONF_PIN][CONF_NUMBER] not in EXTRA_ADC:
         pin = await cg.gpio_pin_expression(config[CONF_PIN])
         cg.add(var.set_pin(pin))
 
-    if CONF_RAW in config:
-        cg.add(var.set_output_raw(config[CONF_RAW]))
-
-    if CONF_ATTENUATION in config:
-        if config[CONF_ATTENUATION] == "auto":
-            cg.add(var.set_autorange(cg.global_ns.true))
-        else:
-            cg.add(var.set_attenuation(config[CONF_ATTENUATION]))
+    cg.add(var.set_output_raw(config[CONF_RAW]))
+    cg.add(var.set_sample_count(config[CONF_SAMPLES]))
+    cg.add(var.set_sampling_mode(config[CONF_SAMPLING_MODE]))
 
     if CORE.is_esp32:
+        if attenuation := config.get(CONF_ATTENUATION):
+            if attenuation == "auto":
+                cg.add(var.set_autorange(cg.global_ns.true))
+            else:
+                cg.add(var.set_attenuation(attenuation))
+
         variant = get_esp32_variant()
         pin_num = config[CONF_PIN][CONF_NUMBER]
-        chan = ESP32_VARIANT_ADC1_PIN_TO_CHANNEL[variant][pin_num]
-        cg.add(var.set_channel(chan))
+        if (
+            variant in ESP32_VARIANT_ADC1_PIN_TO_CHANNEL
+            and pin_num in ESP32_VARIANT_ADC1_PIN_TO_CHANNEL[variant]
+        ):
+            chan = ESP32_VARIANT_ADC1_PIN_TO_CHANNEL[variant][pin_num]
+            cg.add(var.set_channel(adc_unit_t.ADC_UNIT_1, chan))
+        elif (
+            variant in ESP32_VARIANT_ADC2_PIN_TO_CHANNEL
+            and pin_num in ESP32_VARIANT_ADC2_PIN_TO_CHANNEL[variant]
+        ):
+            chan = ESP32_VARIANT_ADC2_PIN_TO_CHANNEL[variant][pin_num]
+            cg.add(var.set_channel(adc_unit_t.ADC_UNIT_2, chan))
+
+    elif CORE.is_nrf52:
+        CORE.data.setdefault(CONF_ADC_CHANNEL_ID, 0)
+        channel_id = CORE.data[CONF_ADC_CHANNEL_ID]
+        CORE.data[CONF_ADC_CHANNEL_ID] = channel_id + 1
+        zephyr_add_prj_conf("ADC", True)
+        nrf_saadc = config[CONF_NRF_SAADC]
+        rhs = cg.RawExpression(
+            f"ADC_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), {channel_id})"
+        )
+        adc = cg.new_Pvariable(nrf_saadc, rhs)
+        cg.add(var.set_adc_channel(adc))
+        gain = "ADC_GAIN_1_6"
+        pin_number = config[CONF_PIN][CONF_NUMBER]
+        if pin_number == "VDDHDIV5":
+            gain = "ADC_GAIN_1_2"
+        if isinstance(pin_number, int):
+            GPIO_TO_AIN = {v: k for k, v in AIN_TO_GPIO.items()}
+            pin_number = GPIO_TO_AIN[pin_number]
+        zephyr_add_user("io-channels", f"<&adc {channel_id}>")
+        zephyr_add_overlay(
+            f"""
+&adc {{
+    #address-cells = <1>;
+    #size-cells = <0>;
+
+    channel@{channel_id} {{
+        reg = <{channel_id}>;
+        zephyr,gain = "{gain}";
+        zephyr,reference = "ADC_REF_INTERNAL";
+        zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+        zephyr,input-positive = <NRF_SAADC_{pin_number}>;
+        zephyr,resolution = <14>;
+        zephyr,oversampling = <8>;
+    }};
+}};
+"""
+        )
+
+
+FILTER_SOURCE_FILES = filter_source_files_from_platform(
+    {
+        "adc_sensor_esp32.cpp": {
+            PlatformFramework.ESP32_ARDUINO,
+            PlatformFramework.ESP32_IDF,
+        },
+        "adc_sensor_esp8266.cpp": {PlatformFramework.ESP8266_ARDUINO},
+        "adc_sensor_rp2040.cpp": {PlatformFramework.RP2040_ARDUINO},
+        "adc_sensor_libretiny.cpp": {
+            PlatformFramework.BK72XX_ARDUINO,
+            PlatformFramework.RTL87XX_ARDUINO,
+            PlatformFramework.LN882X_ARDUINO,
+        },
+        "adc_sensor_zephyr.cpp": {PlatformFramework.NRF52_ZEPHYR},
+    }
+)

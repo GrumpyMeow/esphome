@@ -16,13 +16,6 @@ namespace fan {
     (obj)->dump_traits_(TAG, prefix); \
   }
 
-/// Simple enum to represent the speed of a fan. - DEPRECATED - Will be deleted soon
-enum ESPDEPRECATED("FanSpeed is deprecated.", "2021.9") FanSpeed {
-  FAN_SPEED_LOW = 0,     ///< The fan is running on low speed.
-  FAN_SPEED_MEDIUM = 1,  ///< The fan is running on medium speed.
-  FAN_SPEED_HIGH = 2     ///< The fan is running on high/full speed.
-};
-
 /// Simple enum to represent the direction of a fan.
 enum class FanDirection { FORWARD = 0, REVERSE = 1 };
 
@@ -67,8 +60,6 @@ class FanCall {
     this->speed_ = speed;
     return *this;
   }
-  ESPDEPRECATED("set_speed() with string argument is deprecated, use integer argument instead.", "2021.9")
-  FanCall &set_speed(const char *legacy_speed);
   optional<int> get_speed() const { return this->speed_; }
   FanCall &set_direction(FanDirection direction) {
     this->direction_ = direction;
@@ -79,6 +70,10 @@ class FanCall {
     return *this;
   }
   optional<FanDirection> get_direction() const { return this->direction_; }
+  FanCall &set_preset_mode(const std::string &preset_mode);
+  FanCall &set_preset_mode(const char *preset_mode);
+  const char *get_preset_mode() const { return this->preset_mode_; }
+  bool has_preset_mode() const { return this->preset_mode_ != nullptr; }
 
   void perform();
 
@@ -90,6 +85,7 @@ class FanCall {
   optional<bool> oscillating_;
   optional<int> speed_;
   optional<FanDirection> direction_{};
+  const char *preset_mode_{nullptr};  // Pointer to string in traits (after validation)
 };
 
 struct FanRestoreState {
@@ -97,6 +93,7 @@ struct FanRestoreState {
   int speed;
   bool oscillating;
   FanDirection direction;
+  uint8_t preset_mode;
 
   /// Convert this struct to a fan call that can be performed.
   FanCall to_call(Fan &fan);
@@ -106,10 +103,6 @@ struct FanRestoreState {
 
 class Fan : public EntityBase {
  public:
-  Fan();
-  /// Construct the fan with name.
-  explicit Fan(const std::string &name);
-
   /// The current on/off state of the fan.
   bool state{false};
   /// The current oscillation state of the fan.
@@ -134,8 +127,15 @@ class Fan : public EntityBase {
   /// Set the restore mode of this fan.
   void set_restore_mode(FanRestoreMode restore_mode) { this->restore_mode_ = restore_mode; }
 
+  /// Get the current preset mode (returns pointer to string stored in traits, or nullptr if not set)
+  const char *get_preset_mode() const { return this->preset_mode_; }
+
+  /// Check if a preset mode is currently active
+  bool has_preset_mode() const { return this->preset_mode_ != nullptr; }
+
  protected:
   friend FanCall;
+  friend struct FanRestoreState;
 
   virtual void control(const FanCall &call) = 0;
 
@@ -143,11 +143,22 @@ class Fan : public EntityBase {
   void save_state_();
 
   void dump_traits_(const char *tag, const char *prefix);
-  uint32_t hash_base() override;
+
+  /// Set the preset mode (finds and stores pointer from traits). Returns true if changed.
+  bool set_preset_mode_(const char *preset_mode);
+  /// Set the preset mode (finds and stores pointer from traits). Returns true if changed.
+  bool set_preset_mode_(const std::string &preset_mode);
+  /// Clear the preset mode
+  void clear_preset_mode_();
+  /// Find and return the matching preset mode pointer from traits, or nullptr if not found.
+  const char *find_preset_mode_(const char *preset_mode);
 
   CallbackManager<void()> state_callback_{};
   ESPPreferenceObject rtc_;
   FanRestoreMode restore_mode_;
+
+ private:
+  const char *preset_mode_{nullptr};
 };
 
 }  // namespace fan

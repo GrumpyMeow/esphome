@@ -1,14 +1,13 @@
 #pragma once
-
-#ifdef USE_ARDUINO
-
+#include "esphome/core/defines.h"
+#ifdef USE_NETWORK
+#include "esphome/components/socket/socket.h"
 #include "esphome/core/component.h"
 
-#include <memory>
-#include <set>
+#include <cinttypes>
 #include <map>
-
-class UDP;
+#include <memory>
+#include <vector>
 
 namespace esphome {
 namespace e131 {
@@ -46,13 +45,11 @@ class E131Component : public esphome::Component {
   void leave_(int universe);
 
   E131ListenMethod listen_method_{E131_MULTICAST};
-  std::unique_ptr<UDP> udp_;
-  std::set<E131AddressableLightEffect *> light_effects_;
+  std::unique_ptr<socket::Socket> socket_;
+  std::vector<E131AddressableLightEffect *> light_effects_;
   std::map<int, int> universe_consumers_;
-  std::map<int, E131Packet> universe_packets_;
 };
 
 }  // namespace e131
 }  // namespace esphome
-
-#endif  // USE_ARDUINO
+#endif

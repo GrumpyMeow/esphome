@@ -1,10 +1,8 @@
 #pragma once
 
-#ifdef USE_ARDUINO
-
 #include "esphome/core/component.h"
 #include "esphome/components/light/addressable_light_effect.h"
-
+#ifdef USE_NETWORK
 namespace esphome {
 namespace e131 {
 
@@ -15,7 +13,7 @@ enum E131LightChannels { E131_MONO = 1, E131_RGB = 3, E131_RGBW = 4 };
 
 class E131AddressableLightEffect : public light::AddressableLightEffect {
  public:
-  E131AddressableLightEffect(const std::string &name);
+  E131AddressableLightEffect(const char *name);
 
   void start() override;
   void stop() override;
@@ -44,5 +42,4 @@ class E131AddressableLightEffect : public light::AddressableLightEffect {
 
 }  // namespace e131
 }  // namespace esphome
-
-#endif  // USE_ARDUINO
+#endif

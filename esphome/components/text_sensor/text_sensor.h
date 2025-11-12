@@ -5,24 +5,26 @@
 #include "esphome/core/helpers.h"
 #include "esphome/components/text_sensor/filter.h"
 
+#include <initializer_list>
+#include <memory>
+
 namespace esphome {
 namespace text_sensor {
 
-#define LOG_TEXT_SENSOR(prefix, type, obj) \
-  if ((obj) != nullptr) { \
-    ESP_LOGCONFIG(TAG, "%s%s '%s'", prefix, LOG_STR_LITERAL(type), (obj)->get_name().c_str()); \
-    if (!(obj)->get_icon().empty()) { \
-      ESP_LOGCONFIG(TAG, "%s  Icon: '%s'", prefix, (obj)->get_icon().c_str()); \
-    } \
-    if (!(obj)->unique_id().empty()) { \
-      ESP_LOGV(TAG, "%s  Unique ID: '%s'", prefix, (obj)->unique_id().c_str()); \
-    } \
-  }
+void log_text_sensor(const char *tag, const char *prefix, const char *type, TextSensor *obj);
 
-class TextSensor : public EntityBase {
+#define LOG_TEXT_SENSOR(prefix, type, obj) log_text_sensor(TAG, prefix, LOG_STR_LITERAL(type), obj)
+
+#define SUB_TEXT_SENSOR(name) \
+ protected: \
+  text_sensor::TextSensor *name##_text_sensor_{nullptr}; \
+\
+ public: \
+  void set_##name##_text_sensor(text_sensor::TextSensor *text_sensor) { this->name##_text_sensor_ = text_sensor; }
+
+class TextSensor : public EntityBase, public EntityBase_DeviceClass {
  public:
-  explicit TextSensor();
-  explicit TextSensor(const std::string &name);
+  TextSensor() = default;
 
   /// Getter-syntax for .state.
   std::string get_state() const;
@@ -35,10 +37,10 @@ class TextSensor : public EntityBase {
   void add_filter(Filter *filter);
 
   /// Add a list of vectors to the back of the filter chain.
-  void add_filters(const std::vector<Filter *> &filters);
+  void add_filters(std::initializer_list<Filter *> filters);
 
   /// Clear the filters and replace them by filters.
-  void set_filters(const std::vector<Filter *> &filters);
+  void set_filters(std::initializer_list<Filter *> filters);
 
   /// Clear the entire filter chain.
   void clear_filters();
@@ -52,21 +54,15 @@ class TextSensor : public EntityBase {
 
   // ========== INTERNAL METHODS ==========
   // (In most use cases you won't need these)
-  virtual std::string unique_id();
-
-  bool has_state();
 
   void internal_send_state_to_frontend(const std::string &state);
 
  protected:
-  uint32_t hash_base() override;
-
-  CallbackManager<void(std::string)> raw_callback_;  ///< Storage for raw state callbacks.
-  CallbackManager<void(std::string)> callback_;      ///< Storage for filtered state callbacks.
+  std::unique_ptr<CallbackManager<void(std::string)>>
+      raw_callback_;                             ///< Storage for raw state callbacks (lazy allocated).
+  CallbackManager<void(std::string)> callback_;  ///< Storage for filtered state callbacks.
 
   Filter *filter_list_{nullptr};  ///< Store all active filters.
-
-  bool has_state_{false};
 };
 
 }  // namespace text_sensor

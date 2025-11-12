@@ -4,6 +4,7 @@
 #include "esphome/core/entity_base.h"
 #include "esphome/core/helpers.h"
 #include "esphome/core/preferences.h"
+
 #include "cover_traits.h"
 
 namespace esphome {
@@ -19,8 +20,8 @@ const extern float COVER_CLOSED;
     if (traits_.get_is_assumed_state()) { \
       ESP_LOGCONFIG(TAG, "%s  Assumed State: YES", prefix); \
     } \
-    if (!(obj)->get_device_class().empty()) { \
-      ESP_LOGCONFIG(TAG, "%s  Device Class: '%s'", prefix, (obj)->get_device_class().c_str()); \
+    if (!(obj)->get_device_class_ref().empty()) { \
+      ESP_LOGCONFIG(TAG, "%s  Device Class: '%s'", prefix, (obj)->get_device_class_ref().c_str()); \
     } \
   }
 
@@ -108,10 +109,9 @@ const char *cover_operation_to_str(CoverOperation op);
  * to control all values of the cover. Also implement get_traits() to return what operations
  * the cover supports.
  */
-class Cover : public EntityBase {
+class Cover : public EntityBase, public EntityBase_DeviceClass {
  public:
   explicit Cover();
-  explicit Cover(const std::string &name);
 
   /// The current operation of the cover (idle, opening, closing).
   CoverOperation current_operation{COVER_OPERATION_IDLE};
@@ -126,24 +126,6 @@ class Cover : public EntityBase {
 
   /// Construct a new cover call used to control the cover.
   CoverCall make_call();
-  /** Open the cover.
-   *
-   * This is a legacy method and may be removed later, please use `.make_call()` instead.
-   */
-  ESPDEPRECATED("open() is deprecated, use make_call().set_command_open() instead.", "2021.9")
-  void open();
-  /** Close the cover.
-   *
-   * This is a legacy method and may be removed later, please use `.make_call()` instead.
-   */
-  ESPDEPRECATED("close() is deprecated, use make_call().set_command_close() instead.", "2021.9")
-  void close();
-  /** Stop the cover.
-   *
-   * This is a legacy method and may be removed later, please use `.make_call()` instead.
-   */
-  ESPDEPRECATED("stop() is deprecated, use make_call().set_command_stop() instead.", "2021.9")
-  void stop();
 
   void add_on_state_callback(std::function<void()> &&f);
 
@@ -157,8 +139,6 @@ class Cover : public EntityBase {
   void publish_state(bool save = true);
 
   virtual CoverTraits get_traits() = 0;
-  void set_device_class(const std::string &device_class);
-  std::string get_device_class();
 
   /// Helper method to check if the cover is fully open. Equivalent to comparing .position against 1.0
   bool is_fully_open() const;
@@ -170,17 +150,9 @@ class Cover : public EntityBase {
 
   virtual void control(const CoverCall &call) = 0;
 
-  /** Override this to set the default device class.
-   *
-   * @deprecated This method is deprecated, set the property during config validation instead. (2022.1)
-   */
-  virtual std::string device_class();
-
   optional<CoverRestoreState> restore_state_();
-  uint32_t hash_base() override;
 
   CallbackManager<void()> state_callback_{};
-  optional<std::string> device_class_override_{};
 
   ESPPreferenceObject rtc_;
 };

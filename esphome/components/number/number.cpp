@@ -1,4 +1,6 @@
 #include "number.h"
+#include "esphome/core/defines.h"
+#include "esphome/core/controller_registry.h"
 #include "esphome/core/log.h"
 
 namespace esphome {
@@ -6,51 +8,40 @@ namespace number {
 
 static const char *const TAG = "number";
 
-void NumberCall::perform() {
-  ESP_LOGD(TAG, "'%s' - Setting", this->parent_->get_name().c_str());
-  if (!this->value_.has_value() || std::isnan(*this->value_)) {
-    ESP_LOGW(TAG, "No value set for NumberCall");
+// Function implementation of LOG_NUMBER macro to reduce code size
+void log_number(const char *tag, const char *prefix, const char *type, Number *obj) {
+  if (obj == nullptr) {
     return;
   }
 
-  const auto &traits = this->parent_->traits;
-  auto value = *this->value_;
+  ESP_LOGCONFIG(tag, "%s%s '%s'", prefix, type, obj->get_name().c_str());
 
-  float min_value = traits.get_min_value();
-  if (value < min_value) {
-    ESP_LOGW(TAG, "  Value %f must not be less than minimum %f", value, min_value);
-    return;
+  if (!obj->get_icon_ref().empty()) {
+    ESP_LOGCONFIG(tag, "%s  Icon: '%s'", prefix, obj->get_icon_ref().c_str());
   }
-  float max_value = traits.get_max_value();
-  if (value > max_value) {
-    ESP_LOGW(TAG, "  Value %f must not be greater than maximum %f", value, max_value);
-    return;
+
+  if (!obj->traits.get_unit_of_measurement_ref().empty()) {
+    ESP_LOGCONFIG(tag, "%s  Unit of Measurement: '%s'", prefix, obj->traits.get_unit_of_measurement_ref().c_str());
   }
-  ESP_LOGD(TAG, "  Value: %f", *this->value_);
-  this->parent_->control(*this->value_);
+
+  if (!obj->traits.get_device_class_ref().empty()) {
+    ESP_LOGCONFIG(tag, "%s  Device Class: '%s'", prefix, obj->traits.get_device_class_ref().c_str());
+  }
 }
 
 void Number::publish_state(float state) {
-  this->has_state_ = true;
+  this->set_has_state(true);
   this->state = state;
   ESP_LOGD(TAG, "'%s': Sending state %f", this->get_name().c_str(), state);
   this->state_callback_.call(state);
+#if defined(USE_NUMBER) && defined(USE_CONTROLLER_REGISTRY)
+  ControllerRegistry::notify_number_update(this);
+#endif
 }
 
 void Number::add_on_state_callback(std::function<void(float)> &&callback) {
   this->state_callback_.add(std::move(callback));
 }
-
-std::string NumberTraits::get_unit_of_measurement() {
-  if (this->unit_of_measurement_.has_value())
-    return *this->unit_of_measurement_;
-  return "";
-}
-void NumberTraits::set_unit_of_measurement(const std::string &unit_of_measurement) {
-  this->unit_of_measurement_ = unit_of_measurement;
-}
-
-uint32_t Number::hash_base() { return 2282307003UL; }
 
 }  // namespace number
 }  // namespace esphome

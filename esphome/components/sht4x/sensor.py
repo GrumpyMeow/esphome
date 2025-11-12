@@ -1,25 +1,28 @@
 import esphome.codegen as cg
+from esphome.components import i2c, sensirion_common, sensor
 import esphome.config_validation as cv
-from esphome.components import i2c, sensor
 from esphome.const import (
+    CONF_HUMIDITY,
     CONF_ID,
     CONF_TEMPERATURE,
-    CONF_HUMIDITY,
+    DEVICE_CLASS_HUMIDITY,
+    DEVICE_CLASS_TEMPERATURE,
+    ICON_THERMOMETER,
+    ICON_WATER_PERCENT,
     STATE_CLASS_MEASUREMENT,
     UNIT_CELSIUS,
     UNIT_PERCENT,
-    ICON_THERMOMETER,
-    ICON_WATER_PERCENT,
-    DEVICE_CLASS_TEMPERATURE,
-    DEVICE_CLASS_HUMIDITY,
 )
 
 CODEOWNERS = ["@sjtrny"]
 DEPENDENCIES = ["i2c"]
+AUTO_LOAD = ["sensirion_common"]
 
 sht4x_ns = cg.esphome_ns.namespace("sht4x")
 
-SHT4XComponent = sht4x_ns.class_("SHT4XComponent", cg.PollingComponent, i2c.I2CDevice)
+SHT4XComponent = sht4x_ns.class_(
+    "SHT4XComponent", cg.PollingComponent, sensirion_common.SensirionI2CDevice
+)
 
 CONF_PRECISION = "precision"
 SHT4XPRECISION = sht4x_ns.enum("SHT4XPRECISION")
@@ -95,7 +98,6 @@ async def to_code(config):
     cg.add(var.set_heater_duty_value(config[CONF_HEATER_MAX_DUTY]))
 
     for key, funcName in TYPES.items():
-
         if key in config:
             sens = await sensor.new_sensor(config[key])
             cg.add(getattr(var, funcName)(sens))

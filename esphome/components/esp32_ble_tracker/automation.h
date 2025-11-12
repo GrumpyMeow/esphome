@@ -5,23 +5,27 @@
 
 #ifdef USE_ESP32
 
-namespace esphome {
-namespace esp32_ble_tracker {
+namespace esphome::esp32_ble_tracker {
+#ifdef USE_ESP32_BLE_DEVICE
 class ESPBTAdvertiseTrigger : public Trigger<const ESPBTDevice &>, public ESPBTDeviceListener {
  public:
   explicit ESPBTAdvertiseTrigger(ESP32BLETracker *parent) { parent->register_listener(this); }
-  void set_address(uint64_t address) { this->address_ = address; }
+  void set_addresses(const std::vector<uint64_t> &addresses) { this->address_vec_ = addresses; }
 
   bool parse_device(const ESPBTDevice &device) override {
-    if (this->address_ && device.address_uint64() != this->address_) {
-      return false;
+    uint64_t u64_addr = device.address_uint64();
+    if (!address_vec_.empty()) {
+      if (std::find(address_vec_.begin(), address_vec_.end(), u64_addr) == address_vec_.end()) {
+        return false;
+      }
     }
+
     this->trigger(device);
     return true;
   }
 
  protected:
-  uint64_t address_ = 0;
+  std::vector<uint64_t> address_vec_;
 };
 
 class BLEServiceDataAdvertiseTrigger : public Trigger<const adv_data_t &>, public ESPBTDeviceListener {
@@ -76,7 +80,36 @@ class BLEManufacturerDataAdvertiseTrigger : public Trigger<const adv_data_t &>, 
   ESPBTUUID uuid_;
 };
 
-}  // namespace esp32_ble_tracker
-}  // namespace esphome
+#endif  // USE_ESP32_BLE_DEVICE
+
+class BLEEndOfScanTrigger : public Trigger<>, public ESPBTDeviceListener {
+ public:
+  explicit BLEEndOfScanTrigger(ESP32BLETracker *parent) { parent->register_listener(this); }
+
+#ifdef USE_ESP32_BLE_DEVICE
+  bool parse_device(const ESPBTDevice &device) override { return false; }
+#endif
+  void on_scan_end() override { this->trigger(); }
+};
+
+template<typename... Ts> class ESP32BLEStartScanAction : public Action<Ts...> {
+ public:
+  ESP32BLEStartScanAction(ESP32BLETracker *parent) : parent_(parent) {}
+  TEMPLATABLE_VALUE(bool, continuous)
+  void play(const Ts &...x) override {
+    this->parent_->set_scan_continuous(this->continuous_.value(x...));
+    this->parent_->start_scan();
+  }
+
+ protected:
+  ESP32BLETracker *parent_;
+};
+
+template<typename... Ts> class ESP32BLEStopScanAction : public Action<Ts...>, public Parented<ESP32BLETracker> {
+ public:
+  void play(const Ts &...x) override { this->parent_->stop_scan(); }
+};
+
+}  // namespace esphome::esp32_ble_tracker
 
 #endif

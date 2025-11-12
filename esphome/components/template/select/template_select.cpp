@@ -10,64 +10,57 @@ void TemplateSelect::setup() {
   if (this->f_.has_value())
     return;
 
-  std::string value;
-  ESP_LOGD(TAG, "Setting up Template Select");
-  if (!this->restore_value_) {
-    value = this->initial_option_;
-    ESP_LOGD(TAG, "State from initial: %s", value.c_str());
-  } else {
-    size_t index;
-    this->pref_ = global_preferences->make_preference<size_t>(this->get_object_id_hash());
-    if (!this->pref_.load(&index)) {
-      value = this->initial_option_;
-      ESP_LOGD(TAG, "State from initial (could not load): %s", value.c_str());
+  size_t index = this->initial_option_index_;
+  if (this->restore_value_) {
+    this->pref_ = global_preferences->make_preference<size_t>(this->get_preference_hash());
+    size_t restored_index;
+    if (this->pref_.load(&restored_index) && this->has_index(restored_index)) {
+      index = restored_index;
+      ESP_LOGD(TAG, "State from restore: %s", this->option_at(index));
     } else {
-      value = this->traits.get_options().at(index);
-      ESP_LOGD(TAG, "State from restore: %s", value.c_str());
+      ESP_LOGD(TAG, "State from initial (could not load or invalid stored index): %s", this->option_at(index));
     }
+  } else {
+    ESP_LOGD(TAG, "State from initial: %s", this->option_at(index));
   }
 
-  this->publish_state(value);
+  this->publish_state(index);
 }
 
 void TemplateSelect::update() {
   if (!this->f_.has_value())
     return;
 
-  auto val = (*this->f_)();
-  if (!val.has_value())
-    return;
-
-  auto options = this->traits.get_options();
-  if (std::find(options.begin(), options.end(), *val) == options.end()) {
-    ESP_LOGE(TAG, "lambda returned an invalid option %s", (*val).c_str());
-    return;
+  auto val = this->f_();
+  if (val.has_value()) {
+    if (!this->has_option(*val)) {
+      ESP_LOGE(TAG, "Lambda returned an invalid option: %s", (*val).c_str());
+      return;
+    }
+    this->publish_state(*val);
   }
-
-  this->publish_state(*val);
 }
 
-void TemplateSelect::control(const std::string &value) {
-  this->set_trigger_->trigger(value);
+void TemplateSelect::control(size_t index) {
+  this->set_trigger_->trigger(std::string(this->option_at(index)));
 
   if (this->optimistic_)
-    this->publish_state(value);
+    this->publish_state(index);
 
-  if (this->restore_value_) {
-    auto options = this->traits.get_options();
-    size_t index = std::find(options.begin(), options.end(), value) - options.begin();
-
+  if (this->restore_value_)
     this->pref_.save(&index);
-  }
 }
+
 void TemplateSelect::dump_config() {
   LOG_SELECT("", "Template Select", this);
   LOG_UPDATE_INTERVAL(this);
   if (this->f_.has_value())
     return;
-  ESP_LOGCONFIG(TAG, "  Optimistic: %s", YESNO(this->optimistic_));
-  ESP_LOGCONFIG(TAG, "  Initial Option: %s", this->initial_option_.c_str());
-  ESP_LOGCONFIG(TAG, "  Restore Value: %s", YESNO(this->restore_value_));
+  ESP_LOGCONFIG(TAG,
+                "  Optimistic: %s\n"
+                "  Initial Option: %s\n"
+                "  Restore Value: %s",
+                YESNO(this->optimistic_), this->option_at(this->initial_option_index_), YESNO(this->restore_value_));
 }
 
 }  // namespace template_

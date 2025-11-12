@@ -7,13 +7,15 @@
 namespace esphome {
 namespace light {
 
+enum class LimitMode { CLAMP, DO_NOTHING };
+
 template<typename... Ts> class ToggleAction : public Action<Ts...> {
  public:
   explicit ToggleAction(LightState *state) : state_(state) {}
 
   TEMPLATABLE_VALUE(uint32_t, transition_length)
 
-  void play(Ts... x) override {
+  void play(const Ts &...x) override {
     auto call = this->state_->toggle();
     call.set_transition_length(this->transition_length_.optional_value(x...));
     call.perform();
@@ -42,7 +44,7 @@ template<typename... Ts> class LightControlAction : public Action<Ts...> {
   TEMPLATABLE_VALUE(float, warm_white)
   TEMPLATABLE_VALUE(std::string, effect)
 
-  void play(Ts... x) override {
+  void play(const Ts &...x) override {
     auto call = this->parent_->make_call();
     call.set_color_mode(this->color_mode_.optional_value(x...));
     call.set_state(this->state_.optional_value(x...));
@@ -72,12 +74,15 @@ template<typename... Ts> class DimRelativeAction : public Action<Ts...> {
   TEMPLATABLE_VALUE(float, relative_brightness)
   TEMPLATABLE_VALUE(uint32_t, transition_length)
 
-  void play(Ts... x) override {
+  void play(const Ts &...x) override {
     auto call = this->parent_->make_call();
     float rel = this->relative_brightness_.value(x...);
     float cur;
     this->parent_->remote_values.as_brightness(&cur);
-    float new_brightness = clamp(cur + rel, 0.0f, 1.0f);
+    if ((limit_mode_ == LimitMode::DO_NOTHING) && ((cur < min_brightness_) || (cur > max_brightness_))) {
+      return;
+    }
+    float new_brightness = clamp(cur + rel, min_brightness_, max_brightness_);
     call.set_state(new_brightness != 0.0f);
     call.set_brightness(new_brightness);
 
@@ -85,14 +90,24 @@ template<typename... Ts> class DimRelativeAction : public Action<Ts...> {
     call.perform();
   }
 
+  void set_min_max_brightness(float min, float max) {
+    this->min_brightness_ = min;
+    this->max_brightness_ = max;
+  }
+
+  void set_limit_mode(LimitMode limit_mode) { this->limit_mode_ = limit_mode; }
+
  protected:
   LightState *parent_;
+  float min_brightness_{0.0};
+  float max_brightness_{1.0};
+  LimitMode limit_mode_{LimitMode::CLAMP};
 };
 
 template<typename... Ts> class LightIsOnCondition : public Condition<Ts...> {
  public:
   explicit LightIsOnCondition(LightState *state) : state_(state) {}
-  bool check(Ts... x) override { return this->state_->current_values.is_on(); }
+  bool check(const Ts &...x) override { return this->state_->current_values.is_on(); }
 
  protected:
   LightState *state_;
@@ -100,7 +115,7 @@ template<typename... Ts> class LightIsOnCondition : public Condition<Ts...> {
 template<typename... Ts> class LightIsOffCondition : public Condition<Ts...> {
  public:
   explicit LightIsOffCondition(LightState *state) : state_(state) {}
-  bool check(Ts... x) override { return !this->state_->current_values.is_on(); }
+  bool check(const Ts &...x) override { return !this->state_->current_values.is_on(); }
 
  protected:
   LightState *state_;
@@ -164,7 +179,7 @@ template<typename... Ts> class AddressableSet : public Action<Ts...> {
   TEMPLATABLE_VALUE(float, blue)
   TEMPLATABLE_VALUE(float, white)
 
-  void play(Ts... x) override {
+  void play(const Ts &...x) override {
     auto *out = (AddressableLight *) this->parent_->get_output();
     int32_t range_from = interpret_index(this->range_from_.value_or(x..., 0), out->size());
     if (range_from < 0 || range_from >= out->size())

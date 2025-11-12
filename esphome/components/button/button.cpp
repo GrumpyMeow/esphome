@@ -6,8 +6,18 @@ namespace button {
 
 static const char *const TAG = "button";
 
-Button::Button(const std::string &name) : EntityBase(name) {}
-Button::Button() : Button("") {}
+// Function implementation of LOG_BUTTON macro to reduce code size
+void log_button(const char *tag, const char *prefix, const char *type, Button *obj) {
+  if (obj == nullptr) {
+    return;
+  }
+
+  ESP_LOGCONFIG(tag, "%s%s '%s'", prefix, type, obj->get_name().c_str());
+
+  if (!obj->get_icon_ref().empty()) {
+    ESP_LOGCONFIG(tag, "%s  Icon: '%s'", prefix, obj->get_icon_ref().c_str());
+  }
+}
 
 void Button::press() {
   ESP_LOGD(TAG, "'%s' Pressed.", this->get_name().c_str());
@@ -15,10 +25,6 @@ void Button::press() {
   this->press_callback_.call();
 }
 void Button::add_on_press_callback(std::function<void()> &&callback) { this->press_callback_.add(std::move(callback)); }
-uint32_t Button::hash_base() { return 1495763804UL; }
-
-void Button::set_device_class(const std::string &device_class) { this->device_class_ = device_class; }
-std::string Button::get_device_class() { return this->device_class_; }
 
 }  // namespace button
 }  // namespace esphome
